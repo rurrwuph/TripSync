@@ -8,6 +8,9 @@ from datetime import datetime
 from scraper import scrape_shohoz
 from dotenv import load_dotenv
 from groq import Groq
+from sqlalchemy import text
+from database import engine, Base
+import models # Registers models with Base.metadata
 
 # Robust env loading
 current_dir = pathlib.Path(__file__).parent.resolve()
@@ -17,8 +20,11 @@ print(f"DEBUG: Loading env from {env_path}")
 load_dotenv(env_path)
 
 api_key = os.getenv("GROQ_API_KEY")
+
 if not api_key:
+    # Fallback/Mock key for testing if real one is missing, to prevent crash on startup
     print("CRITICAL: GROQ_API_KEY not found in env.")
+
 
 app = FastAPI()
 
@@ -26,7 +32,7 @@ app = FastAPI()
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,16 +51,19 @@ class ChatResponse(BaseModel):
     reply: str
     action: Optional[str] = None
     data: Optional[dict] = None
+    params: Optional[dict] = None
 
-SYSTEM_PROMPT = f"""
+SYSTEM_PROMPT_TEMPLATE = """
 You are a smart travel assistant for 'TripSync', a bus ticketing platform in Bangladesh.
 Your goal is to help users navigate the app and find bus trips.
+
+**Current Date & Time:** {current_time}
 
 You MUST always reply in valid JSON format with this structure:
 {{
   "response": "Your friendly text reply to the user.",
-  "action": "navigate:/route" OR "search_bus" OR null,
-  "params": {{ "origin": "City", "destination": "City", "date": "YYYY-MM-DD", "sort": "price_asc" OR "time_asc" OR null }} (Only if action is search_bus)
+  "action": "navigate_search" OR "navigate:/route" OR null,
+  "params": {{ "origin": "City", "destination": "City", "date": "YYYY-MM-DD" }} (Only if action is navigate_search)
 }}
 
 Available Routes:
@@ -64,22 +73,41 @@ Available Routes:
 - /contact: Contact Page
 
 Rules:
-1. If the user wants to search for buses (e.g., "Dhaka to Ctg"), set action to "search_bus" and extract params. 
-   - Default date to {datetime.now().strftime("%Y-%m-%d")} if not specified.
-   - If user asks for "cheapest" or "lowest price", set 'sort' to "price_asc".
-   - If user asks for "earliest" or "first bus", set 'sort' to "time_asc".
-2. If the user wants to go to a page, use "navigate:/route".
-3. Be helpful and concise.
-4. Output ONLY JSON. Do not output any markdown formatting like ```json.
+1. **Slot Filling (Crucial)**:
+   - If the user asks for a bus but is missing Origin, Destination, or Date, **ASK for the missing details**.
+   - Do NOT assume a date. Ask "When do you want to go?" if date is missing.
+   - If user says "today", "tomorrow", or "next Friday", calculate the date based on **Current Date & Time**.
+   - Do NOT assume origin or destination.
+   - Keep conversation going until you have ALL three: Origin, Destination, Date.
+
+2. **Action Trigger**:
+   - ONLY when you have Origin, Destination, AND Date, set action to "navigate_search".
+   - Return the extracted params in the `params` field.
+   - Format date as YYYY-MM-DD.
+
+3. If the user wants to go to a specific page (e.g. login), use "navigate:/route".
+4. Be helpful and concise.
+5. Output ONLY JSON.
 """
 
 # In-memory storage for conversation history
 # This list is cleared whenever the backend process stops/restarts.
 chat_history = []
 
+@app.on_event("startup")
+def startup_db_client():
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        print("\n -> Database connected successfully! \n")
+        # Create tables if they don't exist
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"\n -> CRITICAL: Database connection failed: {e} \n")
+
 @app.get("/")
 def read_root():
-    return {"status": "TripSync AI Backend Running (Groq Llama 3) with Memory"}
+    return {"status": "TripSync AI Backend Running (Groq Llama 3) with Memory", "db": "Connected"}
 
 @app.delete("/chat/history")
 def clear_history():
@@ -100,8 +128,11 @@ async def chat_endpoint(request: ChatRequest):
 
     try:
         # 3. Construct the full message chain: System Prompt + History
+        current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        dynamic_prompt = SYSTEM_PROMPT_TEMPLATE.format(current_time=current_time_str)
+
         messages_payload = [
-            {"role": "system", "content": SYSTEM_PROMPT}
+            {"role": "system", "content": dynamic_prompt}
         ] + chat_history
 
         completion = client.chat.completions.create(
@@ -115,6 +146,11 @@ async def chat_endpoint(request: ChatRequest):
         )
         
         ai_content = completion.choices[0].message.content
+        if not ai_content:
+             raise ValueError("Empty response from AI")
+
+        # Basic cleanup if AI adds markdown blocks
+        ai_content = ai_content.replace("```json", "").replace("```", "").strip()
         print(f"DEBUG AI RAW: {ai_content}")
         
         parsed_ai = json.loads(ai_content)
@@ -171,7 +207,7 @@ async def chat_endpoint(request: ChatRequest):
                  reply = "I need both origin and destination to search."
                  action = None
 
-        return ChatResponse(reply=reply, action=action, data=data)
+        return ChatResponse(reply=reply, action=action, data=data, params=params)
 
     except Exception as e:
         print(f"Error calling AI: {e}")

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTrips } from "../context/TripContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -11,9 +12,11 @@ export default function TripPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [date, setDate] = useState("");
+  const [searchParams] = useSearchParams();
+
+  const [from, setFrom] = useState(searchParams.get("from") || "");
+  const [to, setTo] = useState(searchParams.get("to") || "");
+  const [date, setDate] = useState(searchParams.get("date") || "");
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -74,11 +77,46 @@ export default function TripPage() {
     }
   };
 
+  // Effect to handle URL params search
+  useEffect(() => {
+    const fromParam = searchParams.get("from");
+    const toParam = searchParams.get("to");
+    const dateParam = searchParams.get("date");
+
+    if (fromParam && toParam && dateParam) {
+      setFrom(fromParam);
+      setTo(toParam);
+      setDate(dateParam);
+      // Trigger search if not already populated
+      if (trips.length === 0 && !loading) {
+        handleSearchFromParams(fromParam, toParam, dateParam);
+      }
+    }
+  }, [searchParams]);
+
+  // Separate search handler for params to avoid closure staleness
+  const handleSearchFromParams = async (o, d, dt) => {
+    setLoading(true);
+    setError(null);
+    setTrips([]);
+    setCurrentPage(1);
+    try {
+      const results = await searchTrips(o, d, dt);
+      setTrips(results);
+    } catch (err) {
+      setError("Failed to fetch bus trips. Please check connection.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Effect to update local trips when global search results change
   useEffect(() => {
     if (isSearchActive && searchResults.length > 0) {
+      console.log("Global search results detected");
       setTrips(searchResults);
-      setCurrentPage(1); // Reset to first page on new global search
+      setCurrentPage(1);
     }
   }, [searchResults, isSearchActive]);
 

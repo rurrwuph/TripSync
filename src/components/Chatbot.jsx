@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTrips } from "../context/TripContext";
-import { formatTime, formatDate } from "../services/tripService";
+import { formatTime, formatDate, API_BASE_URL } from "../services/tripService";
 
 const Chatbot = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -29,7 +29,7 @@ const Chatbot = () => {
         setIsLoading(true);
 
         try {
-            const response = await fetch("http://localhost:8000/chat", {
+            const response = await fetch(`${API_BASE_URL}/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: userMessage.text }),
@@ -38,41 +38,20 @@ const Chatbot = () => {
             const data = await response.json();
             setMessages((prev) => [...prev, { sender: "bot", text: data.reply }]);
 
+            if (data.action === "navigate_search") {
+                const { origin, destination, date } = data.params;
+                // Navigate to Explore page with query params
+                navigate(`/explore?from=${origin}&to=${destination}&date=${date}`);
+            }
+
             if (data.action?.startsWith("navigate:")) {
                 navigate(data.action.split(":")[1]);
             }
-
-            if (data.data?.trips) {
-                // Map trips to frontend format
-                const mappedTrips = data.data.trips.map(trip => ({
-                    id: trip.trip_id,
-                    from: data.params?.origin || trip.origin_city_name,
-                    to: data.params?.destination || trip.destination_city_name,
-                    time: formatTime(trip.departure_time),
-                    date: formatDate(data.params?.date),
-                    price: trip.price,
-                    seats: trip.seats_available,
-                    operator: trip.operator,
-                    type: trip.type
-                }));
-
-                // Update global context to show in TripPage
-                setSearchResults(mappedTrips);
-                setIsSearchActive(true);
-
-                // Show in chat bubble
-                setMessages((prev) => [
-                    ...prev,
-                    { sender: "bot", type: "trips", trips: mappedTrips } // Use mapped trips for consistent display
-                ]);
-
-                // Navigate to results page automatically
-                navigate("/explore");
-            }
-        } catch {
+        } catch (error) {
+            console.error("Chat Error:", error);
             setMessages((prev) => [
                 ...prev,
-                { sender: "bot", text: "Unable to connect right now." }
+                { sender: "bot", text: "⚠️ Unable to connect to the assistant. Please ensure the backend is running." }
             ]);
         } finally {
             setIsLoading(false);

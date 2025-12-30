@@ -5,3 +5,5 @@ python-multipart
 requests
 groq
 python-dotenv
+sqlalchemy
+psycopg2-binary
