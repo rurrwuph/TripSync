@@ -1,49 +1,33 @@
 import React, { useEffect, useState } from "react";
+import { useTrips } from "../context/TripContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import TripDetails from "../components/TripDetails";
-import  allTrips  from "../dummy/alltrips"
+import allTrips from "../dummy/alltrips"
+
+
 
 export default function TripPage() {
   // Master trip list (unchanged)
-  // const allTrips = [
-  //   {
-  //     id: 1,
-  //     from: "Dhaka",
-  //     to: "Chittagong",
-  //     time: "08:30 AM",
-  //     date: "2025-12-20",
-  //     price: 1200,
-  //     seats: 18,
-  //     type: "AC",
-  //   },
-  //   {
-  //     id: 2,
-  //     from: "Dhaka",
-  //     to: "Sylhet",
-  //     time: "10:00 AM",
-  //     date: "2025-12-21",
-  //     price: 900,
-  //     seats: 25,
-  //     type: "Non-AC",
-  //   },
-  //   {
-  //     id: 3,
-  //     from: "Dhaka",
-  //     to: "Rajshahi",
-  //     time: "09:15 PM",
-  //     date: "2025-12-20",
-  //     price: 1000,
-  //     seats: 12,
-  //     type: "AC",
-  //   },
-  // ];
+  // const allTrips = [...]
 
+  const { searchResults, isSearchActive } = useTrips();
   const [trips, setTrips] = useState(allTrips);
 
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [date, setDate] = useState("");
+
+  // Effect to update local trips when global search results change
+  useEffect(() => {
+    if (isSearchActive && searchResults.length > 0) {
+      setTrips(searchResults);
+    } else {
+      // If no active search from bot, show default (allTrips)
+      // Or you might want to keep showing what was there.
+      // For now, let's behave such that if bot found something, we show it.
+    }
+  }, [searchResults, isSearchActive]);
 
   const handleSearch = () => {
     const filteredTrips = allTrips.filter((trip) => {
