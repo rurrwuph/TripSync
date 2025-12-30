@@ -12,19 +12,19 @@ export default function RegisterPage() {
 
   // popup state
   const [showPopup, setShowPopup] = useState(false);
-  const [popupType, setPopupType] = useState("exists"); // "exists" | "success" | "error"
+  const [popupType, setPopupType] = useState("exists"); // exists | success | error
   const [popupMessage, setPopupMessage] = useState("");
 
-  const showErrorPopup = (msg) => {
+  const showErrorPopup = (message) => {
     setPopupType("error");
-    setPopupMessage(msg);
+    setPopupMessage(message);
     setShowPopup(true);
   };
 
   const handleRegister = (e) => {
     e.preventDefault();
 
-    // Custom empty-field validation (popup style)
+    // Empty field checks
     if (!fullname.trim()) {
       showErrorPopup("Full name can't be empty.");
       return;
@@ -46,6 +46,19 @@ export default function RegisterPage() {
       return;
     }
 
+    // Phone number validation (exactly 11 digits)
+    if (!/^\d{11}$/.test(phone)) {
+      showErrorPopup("Invalid phone number.");
+      return;
+    }
+
+    // Password length validation
+    if (password.length < 8) {
+      showErrorPopup("Password must be at least 8 characters long.");
+      return;
+    }
+
+    // Password match
     if (password !== confirmPassword) {
       showErrorPopup("Passwords do not match.");
       return;
@@ -61,7 +74,6 @@ export default function RegisterPage() {
       (u) => (u.email || "").toLowerCase() === cleanedEmail
     );
 
-    // If exists: show popup only
     if (existingUser) {
       setPopupType("exists");
       setShowPopup(true);
@@ -72,7 +84,7 @@ export default function RegisterPage() {
     const newUser = {
       fullname: fullname.trim(),
       email: cleanedEmail,
-      phone: phone.trim(),
+      phone,
       password,
       role: "user",
     };
@@ -81,7 +93,7 @@ export default function RegisterPage() {
     localStorage.setItem("users", JSON.stringify(users));
     localStorage.setItem("currentUser", JSON.stringify(newUser));
 
-    // Show success popup instead of alert + redirect
+    // Success popup
     setPopupType("success");
     setShowPopup(true);
   };
@@ -92,16 +104,13 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 py-3 px-6 shadow-xl">
-        <Link
-          to="/"
-          className="text-2xl font-bold text-black hover:text-gray-700"
-        >
+        <Link to="/" className="text-2xl font-bold text-black hover:text-gray-700">
           TripSync
         </Link>
       </header>
 
       {/* Register Form */}
-      <div className="flex-grow flex items-center justify-center">
+      <div className="flex-grow flex items-center justify-center mt-10">
         <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md w-full">
           <h2 className="text-3xl font-bold text-center mb-8">
             Register for TripSync
@@ -168,10 +177,7 @@ export default function RegisterPage() {
 
           <p className="mt-6 text-center text-gray-500">
             Already have an account?{" "}
-            <Link
-              to="/login"
-              className="text-black font-semibold hover:underline"
-            >
+            <Link to="/login" className="text-black font-semibold hover:underline">
               Login
             </Link>
           </p>
@@ -195,7 +201,6 @@ export default function RegisterPage() {
                   >
                     OK
                   </button>
-
                   <button
                     onClick={() => {
                       closePopup();

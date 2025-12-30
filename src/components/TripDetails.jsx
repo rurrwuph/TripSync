@@ -7,7 +7,7 @@ const TripDetails = ({trip}) => {
     return (
         <div>
             <div className="bg-white rounded-3xl shadow-md p-8 flex flex-col md:flex-row justify-between items-center hover:shadow-xl transition">
-                <div className="grid md:grid-cols-5 gap-6 w-full">
+                <div className="grid md:grid-cols-6 gap-6 w-full">
                     <div>
                         <p className="text-sm text-gray-500">From</p>
                         <p className="text-lg font-semibold">{trip.from}</p>
@@ -27,6 +27,10 @@ const TripDetails = ({trip}) => {
                     <div>
                         <p className="text-sm text-gray-500">Bus Type</p>
                         <p className="text-lg font-semibold">{trip.type}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-500">Date</p>
+                        <p className="text-lg font-semibold">{trip.date}</p>
                     </div>
                 </div>
 
