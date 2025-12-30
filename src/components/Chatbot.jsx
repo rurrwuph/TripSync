@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTrips } from "../context/TripContext";
+import { formatTime, formatDate } from "../services/tripService";
 
 const Chatbot = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -42,10 +43,31 @@ const Chatbot = () => {
             }
 
             if (data.data?.trips) {
+                // Map trips to frontend format
+                const mappedTrips = data.data.trips.map(trip => ({
+                    id: trip.trip_id,
+                    from: data.params?.origin || trip.origin_city_name,
+                    to: data.params?.destination || trip.destination_city_name,
+                    time: formatTime(trip.departure_time),
+                    date: formatDate(data.params?.date),
+                    price: trip.price,
+                    seats: trip.seats_available,
+                    operator: trip.operator,
+                    type: trip.type
+                }));
+
+                // Update global context to show in TripPage
+                setSearchResults(mappedTrips);
+                setIsSearchActive(true);
+
+                // Show in chat bubble
                 setMessages((prev) => [
                     ...prev,
-                    { sender: "bot", type: "trips", trips: data.data.trips }
+                    { sender: "bot", type: "trips", trips: mappedTrips } // Use mapped trips for consistent display
                 ]);
+
+                // Navigate to results page automatically
+                navigate("/explore");
             }
         } catch {
             setMessages((prev) => [
@@ -106,7 +128,7 @@ const Chatbot = () => {
                                                 className="bg-white border rounded-2xl p-4 shadow-sm"
                                             >
                                                 <div className="font-semibold text-sm mb-1">
-                                                    {trip.route}
+                                                    {trip.from} - {trip.to}
                                                 </div>
 
                                                 <div className="flex justify-between text-xs text-gray-600 mb-1">

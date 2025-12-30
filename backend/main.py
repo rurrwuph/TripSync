@@ -54,7 +54,7 @@ You MUST always reply in valid JSON format with this structure:
 {{
   "response": "Your friendly text reply to the user.",
   "action": "navigate:/route" OR "search_bus" OR null,
-  "params": {{ "origin": "City", "destination": "City", "date": "YYYY-MM-DD" }} (Only if action is search_bus)
+  "params": {{ "origin": "City", "destination": "City", "date": "YYYY-MM-DD", "sort": "price_asc" OR "time_asc" OR null }} (Only if action is search_bus)
 }}
 
 Available Routes:
@@ -66,6 +66,8 @@ Available Routes:
 Rules:
 1. If the user wants to search for buses (e.g., "Dhaka to Ctg"), set action to "search_bus" and extract params. 
    - Default date to {datetime.now().strftime("%Y-%m-%d")} if not specified.
+   - If user asks for "cheapest" or "lowest price", set 'sort' to "price_asc".
+   - If user asks for "earliest" or "first bus", set 'sort' to "time_asc".
 2. If the user wants to go to a page, use "navigate:/route".
 3. Be helpful and concise.
 4. Output ONLY JSON. Do not output any markdown formatting like ```json.
@@ -138,9 +140,28 @@ async def chat_endpoint(request: ChatRequest):
                 reply = f"Searching for buses from {origin} to {destination}..."
                 # Run scraper
                 trips = scrape_shohoz(origin, destination, date)
+                
+                # Apply Sorting
+                sort_by = params.get("sort")
+                if sort_by == "price_asc":
+                    # Parse price string "1000.00" to float
+                    trips.sort(key=lambda x: float(str(x.get("price", "0")).replace(",", "")))
+                    reply = f"Found {len(trips)} buses! Here are the cheapest ones."
+                elif sort_by == "time_asc":
+                    # Parse time string "09:30 AM" to datetime object for sorting
+                    def parse_time(t_str):
+                        try:
+                            return datetime.strptime(t_str, "%I:%M %p")
+                        except:
+                            return datetime.max
+                    trips.sort(key=lambda x: parse_time(x.get("departure_time", "")))
+                    reply = f"Found {len(trips)} buses! Here are the earliest ones."
+
                 if trips:
                     data = {"trips": trips}
-                    reply = f"Found {len(trips)} buses for you!"
+                    if not sort_by:
+                        reply = f"Found {len(trips)} buses for you!"
+                    
                     # Update history with success message so AI knows it found trips
                     chat_history.append({"role": "system", "content": f"System: Found {len(trips)} buses."})
                 else:
@@ -155,6 +176,20 @@ async def chat_endpoint(request: ChatRequest):
     except Exception as e:
         print(f"Error calling AI: {e}")
         return ChatResponse(reply="Sorry, I'm having trouble thinking right now.", action=None)
+
+class SearchRequest(BaseModel):
+    origin: str
+    destination: str
+    date: str
+
+@app.post("/api/search")
+async def search_trips(request: SearchRequest):
+    try:
+        print(f"Searching for: {request.origin} -> {request.destination} on {request.date}")
+        trips = scrape_shohoz(request.origin, request.destination, request.date)
+        return {"trips": trips, "count": len(trips)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

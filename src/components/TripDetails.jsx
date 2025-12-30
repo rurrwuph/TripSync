@@ -1,13 +1,13 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-const TripDetails = ({trip}) => {
+const TripDetails = ({ trip }) => {
     const navigate = useNavigate();
 
     return (
         <div>
             <div className="bg-white rounded-3xl shadow-md p-8 flex flex-col md:flex-row justify-between items-center hover:shadow-xl transition">
-                <div className="grid md:grid-cols-6 gap-6 w-full">
+                <div className="grid md:grid-cols-7 gap-6 w-full">
                     <div>
                         <p className="text-sm text-gray-500">From</p>
                         <p className="text-lg font-semibold">{trip.from}</p>
@@ -25,6 +25,10 @@ const TripDetails = ({trip}) => {
                         <p className="text-lg font-semibold">{trip.seats} available</p>
                     </div>
                     <div>
+                        <p className="text-sm text-gray-500">Operator</p>
+                        <p className="text-lg font-semibold">{trip.operator}</p>
+                    </div>
+                    <div>
                         <p className="text-sm text-gray-500">Bus Type</p>
                         <p className="text-lg font-semibold">{trip.type}</p>
                     </div>
@@ -40,11 +44,11 @@ const TripDetails = ({trip}) => {
                         View Seats
                     </Link> */}
                     <button
-  onClick={() => navigate("/seats", { state: trip })}
-  className="px-6 py-3 bg-black text-white rounded-full hover:bg-gray-800 transition"
->
-  View Seats
-</button>
+                        onClick={() => navigate("/seats", { state: trip })}
+                        className="px-6 py-3 bg-black text-white rounded-full hover:bg-gray-800 transition"
+                    >
+                        View Seats
+                    </button>
                 </div>
             </div>
         </div>
