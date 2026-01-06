@@ -12,7 +12,7 @@ export default function TripPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [from, setFrom] = useState(searchParams.get("from") || "");
   const [to, setTo] = useState(searchParams.get("to") || "");
@@ -87,8 +87,10 @@ export default function TripPage() {
       setFrom(fromParam);
       setTo(toParam);
       setDate(dateParam);
-      // Trigger search if not already populated
-      if (trips.length === 0 && !loading) {
+
+      // Always search if params exist (and differ from current or just initial load)
+      // We rely on the internal loading check of the handler or UI to prevent spam
+      if (!loading) {
         handleSearchFromParams(fromParam, toParam, dateParam);
       }
     }
@@ -126,20 +128,8 @@ export default function TripPage() {
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    setTrips([]);
-    setCurrentPage(1); // Reset to first page on new manual search
-
-    try {
-      const results = await searchTrips(from, to, date);
-      setTrips(results);
-    } catch (err) {
-      setError("Failed to fetch bus trips. Please check the backend or try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    // Update URL params; this will trigger the useEffect to perform the actual search
+    setSearchParams({ from, to, date });
   };
 
   return (

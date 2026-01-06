@@ -25,6 +25,7 @@ export const searchTrips = async (origin, destination, date) => {
             date: formatDate(date),
             price: trip.price,
             seats: trip.seats_available,
+            total_seats: trip.total_seats,
             operator: trip.operator,
             type: trip.type
         }));

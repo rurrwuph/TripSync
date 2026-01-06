@@ -97,6 +97,12 @@ const Header = () => {
                     View Profile
                   </button>
                   <button
+                    onClick={() => navigate("/profile")}
+                    className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
+                  >
+                    My Tickets
+                  </button>
+                  <button
                     onClick={handleSwitchAccount}
                     className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
                   >
@@ -152,6 +158,12 @@ const Header = () => {
                 className="block py-2 w-full text-left"
               >
                 View Profile
+              </button>
+              <button
+                onClick={() => navigate("/profile")}
+                className="block py-2 w-full text-left"
+              >
+                My Tickets
               </button>
               <button
                 onClick={(handleSwitchAccount)}

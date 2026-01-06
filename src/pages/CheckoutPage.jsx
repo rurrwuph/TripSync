@@ -5,8 +5,14 @@ import Footer from "../components/Footer";
 const CheckoutPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { trip, selectedSeats, totalPrice } = location.state || {};
+  const { trip, selectedSeats, totalPrice, paymentSuccess } = location.state || {};
   const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    if (paymentSuccess) {
+      handleConfirmBooking();
+    }
+  }, [paymentSuccess]);
 
   const [user, setUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -57,6 +63,26 @@ const CheckoutPage = () => {
       JSON.stringify(updatedSeats)
     );
 
+    // --- Save to User History ---
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+    if (currentUser) {
+      const bookingRecord = {
+        id: Date.now(), // Simple unique ID
+        tripId: trip.id,
+        from: trip.from,
+        to: trip.to,
+        date: trip.date || "N/A", // Ensure date is captured
+        time: trip.time,
+        seats: selectedSeats,
+        totalPrice: totalPrice,
+        bookedAt: new Date().toISOString()
+      };
+
+      const userHistoryKey = `tripSync_bookings_${currentUser.email}`;
+      const existingHistory = JSON.parse(localStorage.getItem(userHistoryKey)) || [];
+      localStorage.setItem(userHistoryKey, JSON.stringify([bookingRecord, ...existingHistory]));
+    }
+
     // Set the message details
     setSuccessMessage(selectedSeats.join(", "));
 
@@ -90,7 +116,10 @@ const CheckoutPage = () => {
               <p className="text-gray-600 mt-2 text-lg">
                 Your seats <span className="font-semibold text-green-700">{successMessage}</span> have been successfully booked.
               </p>
-              <p className="text-sm text-gray-400 mt-1">Have a safe trip syncing!</p>
+              <p className="text-sm text-gray-400 mt-4 mb-2">Check your profile for ticket details.</p>
+              <button onClick={() => navigate('/profile')} className="text-[#E2136E] font-bold hover:underline">
+                View My Tickets &rarr;
+              </button>
             </div>
           </div>
         </div>
@@ -162,14 +191,14 @@ const CheckoutPage = () => {
         <section className="bg-white rounded-3xl shadow-2xl p-8 flex flex-col gap-6 border border-gray-200 hover:shadow-xl">
           <p className="text-xl font-semibold">Total Price: ৳{totalPrice}</p>
           <div className="flex flex-col md:flex-row gap-4">
-            
+
             {/* --- CONDITIONAL BUTTON LOGIC --- */}
             {user ? (
               <button
-                onClick={handleConfirmBooking}
-                className="flex-1 py-3 md:px-8 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 hover:scale-105 transform transition-all shadow-lg"
+                onClick={() => navigate('/payment/bkash', { state: { trip, selectedSeats, totalPrice } })}
+                className="flex-1 py-3 md:px-8 bg-[#E2136E] text-white font-bold rounded-xl hover:bg-[#c2105e] hover:scale-105 transform transition-all shadow-lg"
               >
-                Confirm Booking
+                Pay with bKash
               </button>
             ) : (
               <button

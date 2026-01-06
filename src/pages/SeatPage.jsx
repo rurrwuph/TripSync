@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import bookedSeatsData from "../assets/bookedSeats.json"
 
 export default function SeatPage() {
 
@@ -11,10 +10,6 @@ export default function SeatPage() {
     const [message, setMessage] = useState("");
     const navigate = useNavigate();
 
-    const bookedSeatsFromJson = bookedSeatsData[trip.id] || [];
-    const bookedSeatsFromStorage = JSON.parse(localStorage.getItem(`bookedSeats_trip_${trip.id}`)) || [];
-    const bookedSeatsForTrip = Array.from(new Set([...bookedSeatsFromJson, ...bookedSeatsFromStorage]));
-
     const [user, setUser] = useState(null);
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -22,6 +17,19 @@ export default function SeatPage() {
         const loggedInUser = JSON.parse(localStorage.getItem("currentUser"));
         if (loggedInUser) setUser(loggedInUser);
     }, []);
+
+    const handleSwitchAccount = () => {
+        localStorage.removeItem("currentUser");
+        setUser(null);
+        setMenuOpen(false);
+        navigate("/login");
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem("currentUser");
+        setUser(null);
+        setMenuOpen(false);
+    };
 
     if (!trip) {
         return (
@@ -33,22 +41,50 @@ export default function SeatPage() {
 
     const departureTime = trip.time;
     const seatPrice = trip.price;
-    const rows = 8;
     const cols = 4;
+    const estimatedTotalSeats = trip.total_seats || 36;
+    const rows = Math.ceil(estimatedTotalSeats / cols);
     const seatLetters = ['A', 'B', 'C', 'D'];
 
-    const seats = [];
+    // --- Simulation Logic ---
+    const totalCapacity = rows * cols;
+    const realAvailableCount = parseInt(trip.seats) || totalCapacity;
+    const countToMarkBooked = Math.max(0, totalCapacity - realAvailableCount);
+
+    const bookedSeatsFromStorage = JSON.parse(localStorage.getItem(`bookedSeats_trip_${trip.id}`)) || [];
+
+    // Generate all seat IDs
+    const allPossibleSeats = [];
     for (let r = 1; r <= rows; r++) {
         for (let c = 0; c < cols; c++) {
-            const seatNumber = `${seatLetters[c]}${r}`;
-
-            seats.push({
-                number: seatNumber,
-                type: (c === 0 || c === 4) ? "Window" : "Aisle",
-                booked: bookedSeatsForTrip.includes(seatNumber),
-            });
+            allPossibleSeats.push(`${seatLetters[c]}${r}`);
         }
     }
+
+    // Fill booked seats to match the count
+    // We prioritize using real user bookings, then fill the rest with simulated ones (filling from front)
+    let bookedSeatsForTrip = [...bookedSeatsFromStorage];
+
+    // If we have TOO MANY mapped booked seats, we must unbook some to match the available count from API
+    // (This overrides local storage/mock data if they conflict with the source of truth)
+    if (countToMarkBooked < bookedSeatsForTrip.length) {
+        bookedSeatsForTrip = bookedSeatsForTrip.slice(0, countToMarkBooked);
+    }
+    // If we need MORE booked seats
+    else if (countToMarkBooked > bookedSeatsForTrip.length) {
+        const needed = countToMarkBooked - bookedSeatsForTrip.length;
+        const simulated = allPossibleSeats.filter(s => !bookedSeatsForTrip.includes(s)).slice(0, needed);
+        bookedSeatsForTrip = [...bookedSeatsForTrip, ...simulated];
+    }
+
+    const seats = allPossibleSeats.map(seatNumber => {
+        const cIndex = seatLetters.indexOf(seatNumber.charAt(0));
+        return {
+            number: seatNumber,
+            type: (cIndex === 0 || cIndex === 3) ? "Window" : "Aisle",
+            booked: bookedSeatsForTrip.includes(seatNumber),
+        };
+    });
 
     const [selectedSeats, setSelectedSeats] = useState([]);
 
@@ -95,16 +131,13 @@ export default function SeatPage() {
                         )}
                     </div>
                 </div>
-                {/* <div className="max-w-7xl mx-auto px-6 mt-3 text-gray-600">
-                    Search &rarr; View Seats
-                </div> */}
             </header>
 
             {/* Bus Info */}
             <section className="max-w-6xl mx-auto px-6 py-6 bg-white rounded-3xl shadow-2xl hover:shadow-3xl transition-all mt-6">
                 <h2 className="text-2xl md:text-3xl font-extrabold mb-2 bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 text-transparent bg-clip-text">
                     {trip.from} &rarr; {trip.to}</h2>
-                <p className="text-gray-600">Bus Type: {trip.type} | Departure: {departureTime} | Price per seat: ৳{seatPrice}</p>
+                <p className="text-gray-600">Bus Type: {trip.type} | Available: {trip.seats} | Departure: {departureTime} | Price per seat: ৳{seatPrice}</p>
             </section>
 
             {/* Seat Legend */}
