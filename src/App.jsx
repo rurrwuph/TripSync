@@ -11,6 +11,8 @@ import ContactPage from './pages/ContactPage'
 import ProfilePage from './pages/ProfilePage'
 import CheckoutPage from './pages/CheckoutPage'
 import PaymentPage from './pages/PaymentPage'
+import AdminDashboard from './pages/Admin/AdminDashboard'
+import ProtectedRoute from './components/ProtectedRoute'
 import { TripProvider } from './context/TripContext'
 
 const App = () => {
@@ -28,6 +30,11 @@ const App = () => {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/payment/bkash" element={<PaymentPage />} />
+          <Route path="/admin" element={
+            <ProtectedRoute roleRequired="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
         </Routes>
 
         <Chatbot />

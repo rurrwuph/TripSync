@@ -54,40 +54,67 @@ const CheckoutPage = () => {
   const savedSeats = JSON.parse(localStorage.getItem(`bookedSeats_trip_${trip.id}`)) || [];
   const [bookedSeats, setBookedSeats] = useState(savedSeats);
 
-  const handleConfirmBooking = () => {
-    const updatedSeats = [...bookedSeats, ...selectedSeats];
-    setBookedSeats(updatedSeats);
-
-    localStorage.setItem(
-      `bookedSeats_trip_${trip.id}`,
-      JSON.stringify(updatedSeats)
-    );
-
-    // --- Save to User History ---
+  const handleConfirmBooking = async () => {
+    // Check if user is logged in
     const currentUser = JSON.parse(localStorage.getItem("currentUser"));
-    if (currentUser) {
-      const bookingRecord = {
-        id: Date.now(), // Simple unique ID
-        tripId: trip.id,
-        from: trip.from,
-        to: trip.to,
-        date: trip.date || "N/A", // Ensure date is captured
-        time: trip.time,
-        seats: selectedSeats,
-        totalPrice: totalPrice,
-        bookedAt: new Date().toISOString()
-      };
-
-      const userHistoryKey = `tripSync_bookings_${currentUser.email}`;
-      const existingHistory = JSON.parse(localStorage.getItem(userHistoryKey)) || [];
-      localStorage.setItem(userHistoryKey, JSON.stringify([bookingRecord, ...existingHistory]));
+    if (!currentUser || !currentUser.email) {
+      alert("Please login to book tickets.");
+      navigate("/login");
+      return;
     }
 
-    // Set the message details
-    setSuccessMessage(selectedSeats.join(", "));
+    try {
+      const response = await fetch("http://localhost:8000/tickets/book", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_email: currentUser.email,
+          trip_details: trip, // Ensure 'trip' object has all necessary fields including 'date'
+          selected_seats: selectedSeats,
+          total_price: totalPrice
+        }),
+      });
 
-    // Clear message after 4 seconds
-    setTimeout(() => setSuccessMessage(""), 4000);
+      if (response.ok) {
+        // Update local storage for immediate UI reflection (optional but good for consistency)
+        const updatedSeats = [...bookedSeats, ...selectedSeats];
+        setBookedSeats(updatedSeats);
+        localStorage.setItem(
+          `bookedSeats_trip_${trip.id}`,
+          JSON.stringify(updatedSeats)
+        );
+
+        // --- Save to User History in Local Storage (Legacy/Frontend Cache) ---
+        // You might want to fetch this from API later, but keeping it for now doesn't hurt.
+        const bookingRecord = {
+          id: Date.now(),
+          tripId: trip.id,
+          from: trip.from,
+          to: trip.to,
+          date: trip.date || "N/A",
+          time: trip.time,
+          seats: selectedSeats,
+          totalPrice: totalPrice,
+          bookedAt: new Date().toISOString()
+        };
+        const userHistoryKey = `tripSync_bookings_${currentUser.email}`;
+        const existingHistory = JSON.parse(localStorage.getItem(userHistoryKey)) || [];
+        localStorage.setItem(userHistoryKey, JSON.stringify([bookingRecord, ...existingHistory]));
+
+        setSuccessMessage(selectedSeats.join(", "));
+        setTimeout(() => setSuccessMessage(""), 4000);
+
+      } else {
+        const errorData = await response.json();
+        alert(`Booking failed: ${errorData.detail}`);
+      }
+
+    } catch (error) {
+      console.error("Booking error:", error);
+      alert("Network error. Could not book tickets.");
+    }
   };
 
   return (

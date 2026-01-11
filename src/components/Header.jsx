@@ -96,6 +96,14 @@ const Header = () => {
                   >
                     View Profile
                   </button>
+                  {user.role === 'admin' && (
+                    <button
+                      onClick={() => navigate("/admin")}
+                      className="block px-4 py-2 hover:bg-gray-100 w-full text-left font-bold text-blue-600"
+                    >
+                      Admin Dashboard
+                    </button>
+                  )}
                   <button
                     onClick={() => navigate("/profile")}
                     className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
@@ -159,6 +167,14 @@ const Header = () => {
               >
                 View Profile
               </button>
+              {user.role === 'admin' && (
+                <button
+                  onClick={() => navigate("/admin")}
+                  className="block py-2 w-full text-left font-bold text-blue-600"
+                >
+                  Admin Dashboard
+                </button>
+              )}
               <button
                 onClick={() => navigate("/profile")}
                 className="block py-2 w-full text-left"

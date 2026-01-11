@@ -16,26 +16,66 @@ const ProfilePage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loggedInUser = localStorage.getItem('currentUser');
-    if (loggedInUser) {
-      try {
-        const user = JSON.parse(loggedInUser);
-        setUserData({
-          fullName: user.fullname || 'TripSync User',
-          email: user.email,
-          phoneNumber: user.phone || 'Not provided',
-          accountType: user.role === 'admin' ? 'Administrator Account' : 'Passenger Account',
-        });
+    const fetchProfileData = async () => {
+      const loggedInUser = localStorage.getItem('currentUser');
+      if (loggedInUser) {
+        try {
+          const user = JSON.parse(loggedInUser);
+          setUserData({
+            fullName: user.fullname || 'TripSync User',
+            email: user.email,
+            phoneNumber: user.phone || 'Not provided',
+            accountType: user.role === 'admin' ? 'Administrator Account' : 'Passenger Account',
+          });
 
-        const userHistoryKey = `tripSync_bookings_${user.email}`;
-        const history = JSON.parse(localStorage.getItem(userHistoryKey)) || [];
-        setBookings(history);
-      } catch (error) {
-        console.error("Error parsing user data:", error);
+          // Fetch tickets from API
+          try {
+            const response = await fetch(`http://localhost:8000/tickets/user/${user.email}`);
+            if (response.ok) {
+              const data = await response.json();
+
+              // Transform API data to match frontend structure
+              // API returns: { id, trip: { route, departure_time, ... }, seat_number, ... }
+              // Frontend expects: { id, from, to, date, time, seats: [], totalPrice, bookedAt }
+
+              // Grouping seats by trip is tricky if we just get a flat list of tickets.
+              // For now, let's map each ticket or try to simple grouping if needed.
+              // Simplification: Display each ticket individually or simple format.
+              // But wait, the previous code showed "Seats: A1, A2". 
+              // To achieve that, we'd need to group by Trip ID on the frontend.
+
+              const formattedBookings = data.map(ticket => {
+                const trip = ticket.trip || {};
+                const dateObj = new Date(trip.departure_time);
+                const [fromCity, toCity] = (trip.route || "Unknown - Unknown").split("-").map(s => s.trim());
+
+                return {
+                  id: ticket.id,
+                  from: fromCity || "Unknown",
+                  to: toCity || "Unknown",
+                  date: dateObj.toLocaleDateString(),
+                  time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  seats: [ticket.seat_number], // Individual ticket
+                  totalPrice: trip.base_fare, // Per seat price
+                  bookedAt: dateObj.toISOString() // accurate enough for display
+                };
+              });
+              setBookings(formattedBookings);
+            } else {
+              console.error("Failed to fetch tickets");
+            }
+          } catch (err) {
+            console.error("Error fetching tickets:", err);
+          }
+
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+        }
+      } else {
+        navigate('/login');
       }
-    } else {
-      navigate('/login');
-    }
+    };
+    fetchProfileData();
   }, [navigate]);
 
   const getAvatarInitial = (name) => name ? name.charAt(0).toUpperCase() : '?';
@@ -71,6 +111,14 @@ const ProfilePage = () => {
                 <button className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition">
                   Edit Profile
                 </button>
+                {userData.accountType === 'Administrator Account' && (
+                  <button
+                    onClick={() => navigate('/admin')}
+                    className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition shadow-sm"
+                  >
+                    Admin Dashboard
+                  </button>
+                )}
                 <button className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition">
                   Change Password
                 </button>

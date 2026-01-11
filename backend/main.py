@@ -1,20 +1,31 @@
 import os
 import json
 import pathlib
-from fastapi import FastAPI, HTTPException
+from textwrap import dedent
+from fastapi import FastAPI, HTTPException, Depends, status
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
-from scraper import scrape_shohoz
 from dotenv import load_dotenv
 from groq import Groq
 from sqlalchemy import text
-from database import engine, Base
-import models # Registers models with Base.metadata
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.database import engine, Base
+import app.models.all_models as models
+from app.services.scraper_service import scrape_shohoz
+
+# Import Routers
+from app.api.endpoints import users, buses, trips, tickets, refunds, admin
+from app.services.user_sync import sync_users_from_json
 
 # Robust env loading
 current_dir = pathlib.Path(__file__).parent.resolve()
+# Up 1 level: backend -> TripSync-1, then src/stores
 env_path = current_dir.parent / "src" / "stores" / "TripSync.env"
+
+# ... (rest of code)
+
+
 
 print(f"DEBUG: Loading env from {env_path}")
 load_dotenv(env_path)
@@ -22,14 +33,10 @@ load_dotenv(env_path)
 api_key = os.getenv("GROQ_API_KEY")
 
 if not api_key:
-    # Fallback/Mock key for testing if real one is missing, to prevent crash on startup
     print("CRITICAL: GROQ_API_KEY not found in env.")
-
 
 app = FastAPI()
 
-# Enable CORS
-from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -43,6 +50,7 @@ client = Groq(
     api_key=api_key,
 )
 
+# --- Chat Models ---
 class ChatRequest(BaseModel):
     message: str
     context: Optional[str] = None
@@ -90,8 +98,6 @@ Rules:
 5. Output ONLY JSON.
 """
 
-# In-memory storage for conversation history
-# This list is cleared whenever the backend process stops/restarts.
 chat_history = []
 
 @app.on_event("startup")
@@ -100,8 +106,11 @@ def startup_db_client():
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         print("\n -> Database connected successfully! \n")
-        # Create tables if they don't exist
+        # Create tables if they don't exist (Updated to use all_models)
         Base.metadata.create_all(bind=engine)
+        
+        # Sync users/admins from JSON
+        sync_users_from_json()
     except Exception as e:
         print(f"\n -> CRITICAL: Database connection failed: {e} \n")
 
@@ -119,15 +128,12 @@ def clear_history():
 async def chat_endpoint(request: ChatRequest):
     user_message = request.message
     
-    # 1. Append User Message to History
     chat_history.append({"role": "user", "content": user_message})
     
-    # 2. Limit History Size (Optional: Keep last 20 messages to fit token limits)
     if len(chat_history) > 20:
         chat_history.pop(0)
 
     try:
-        # 3. Construct the full message chain: System Prompt + History
         current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         dynamic_prompt = SYSTEM_PROMPT_TEMPLATE.format(current_time=current_time_str)
 
@@ -149,14 +155,11 @@ async def chat_endpoint(request: ChatRequest):
         if not ai_content:
              raise ValueError("Empty response from AI")
 
-        # Basic cleanup if AI adds markdown blocks
         ai_content = ai_content.replace("```json", "").replace("```", "").strip()
         print(f"DEBUG AI RAW: {ai_content}")
         
         parsed_ai = json.loads(ai_content)
         
-        # 4. Append AI Response to History (as text content for context)
-        # Note: We store the 'response' text, not the full JSON, to keep context clean for the AI
         ai_reply_text = parsed_ai.get("response", "")
         if ai_reply_text:
              chat_history.append({"role": "assistant", "content": ai_reply_text})
@@ -166,7 +169,6 @@ async def chat_endpoint(request: ChatRequest):
         params = parsed_ai.get("params", {})
         data = None
         
-        # Handle Server-Side Actions
         if action == "search_bus":
             origin = params.get("origin")
             destination = params.get("destination")
@@ -174,17 +176,13 @@ async def chat_endpoint(request: ChatRequest):
             
             if origin and destination:
                 reply = f"Searching for buses from {origin} to {destination}..."
-                # Run scraper
                 trips = scrape_shohoz(origin, destination, date)
                 
-                # Apply Sorting
                 sort_by = params.get("sort")
                 if sort_by == "price_asc":
-                    # Parse price string "1000.00" to float
                     trips.sort(key=lambda x: float(str(x.get("price", "0")).replace(",", "")))
                     reply = f"Found {len(trips)} buses! Here are the cheapest ones."
                 elif sort_by == "time_asc":
-                    # Parse time string "09:30 AM" to datetime object for sorting
                     def parse_time(t_str):
                         try:
                             return datetime.strptime(t_str, "%I:%M %p")
@@ -198,7 +196,6 @@ async def chat_endpoint(request: ChatRequest):
                     if not sort_by:
                         reply = f"Found {len(trips)} buses for you!"
                     
-                    # Update history with success message so AI knows it found trips
                     chat_history.append({"role": "system", "content": f"System: Found {len(trips)} buses."})
                 else:
                     reply = f"Sorry, I couldn't find any buses from {origin} to {destination}."
@@ -227,6 +224,15 @@ async def search_trips(request: SearchRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Include Routers
+app.include_router(users.router, prefix="/users", tags=["Users"])
+app.include_router(buses.router, prefix="/buses", tags=["Buses"])
+app.include_router(trips.router, prefix="/trips", tags=["Trips"])
+app.include_router(tickets.router, prefix="/tickets", tags=["Tickets"])
+app.include_router(refunds.router, prefix="/refunds", tags=["Refunds"])
+app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Updated to main:app since main.py is in root of backend
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

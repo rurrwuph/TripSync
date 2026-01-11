@@ -59,25 +59,6 @@ def scrape_shohoz(origin, destination, date):
 
         results = []
         for trip in trips_list:
-            # Filter out 0 price trips
-            price_str = str(trip.get("economy_class_fare", "0"))
-            try:
-                price_val = float(price_str.replace(",", ""))
-            except ValueError:
-                price_val = 0.0
-
-            if price_val <= 0:
-                continue
-
-            # Estimate total seats based on bus type
-            bus_type = trip.get("bus_desc", "").lower()
-            if "sleeper" in bus_type or "double" in bus_type:
-               total_seats = 30
-            elif "ac" in bus_type and "hino" in bus_type:
-               total_seats = 40 
-            else:
-               total_seats = 36 # Default
-               
             parsed_trip = {
                 "operator": trip.get("company_name"),
                 "type": trip.get("bus_desc"),
@@ -86,7 +67,6 @@ def scrape_shohoz(origin, destination, date):
                 "arrival_time": trip.get("arrival_time"),
                 "price": trip.get("economy_class_fare"),
                 "seats_available": trip.get("noOfSeatsAvailable"),
-                "total_seats": total_seats,
                 "trip_id": trip.get("trip_id")
             }
             results.append(parsed_trip)

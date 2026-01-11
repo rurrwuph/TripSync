@@ -1,0 +1,169 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const AdminDashboard = () => {
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [stats, setStats] = useState({ total_tickets_sold: 0, total_active_buses: 0, pending_refunds: 0 });
+    const [buses, setBuses] = useState([]);
+    const [newBus, setNewBus] = useState({ bus_number: '', total_seats: 36, type: 'Non-AC' });
+    const navigate = useNavigate();
+
+    // Fetch Stats
+    useEffect(() => {
+        if (activeTab === 'dashboard') {
+            fetchStats();
+        } else if (activeTab === 'buses') {
+            fetchBuses();
+        }
+    }, [activeTab]);
+
+    const getAuthHeaders = () => {
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        return {
+            'Content-Type': 'application/json',
+            'user-email': user?.email || '' // Mock auth header
+        };
+    };
+
+    const fetchStats = async () => {
+        try {
+            const res = await fetch('http://localhost:8000/admin/dashboard/summary', { headers: getAuthHeaders() });
+            const data = await res.json();
+            setStats(data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const fetchBuses = async () => {
+        try {
+            const res = await fetch('http://localhost:8000/admin/buses', { headers: getAuthHeaders() });
+            const data = await res.json();
+            setBuses(data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleAddBus = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await fetch('http://localhost:8000/admin/buses', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(newBus)
+            });
+            if (res.ok) {
+                alert('Bus added successfully');
+                fetchBuses();
+                setNewBus({ bus_number: '', total_seats: 36, type: 'Non-AC' });
+            } else {
+                alert('Failed to add bus');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-100 flex">
+            {/* Sidebar */}
+            <aside className="w-64 bg-black text-white p-6 shadow-xl">
+                <h1 className="text-2xl font-bold mb-10">TripSync Admin</h1>
+                <nav className="space-y-4">
+                    <button onClick={() => setActiveTab('dashboard')} className={`w-full text-left py-2 px-4 rounded ${activeTab === 'dashboard' ? 'bg-gray-800' : 'hover:bg-gray-800'}`}>Dashboard</button>
+                    <button onClick={() => setActiveTab('buses')} className={`w-full text-left py-2 px-4 rounded ${activeTab === 'buses' ? 'bg-gray-800' : 'hover:bg-gray-800'}`}>Manage Buses</button>
+                    <button onClick={() => setActiveTab('trips')} className={`w-full text-left py-2 px-4 rounded ${activeTab === 'trips' ? 'bg-gray-800' : 'hover:bg-gray-800'}`}>Schedule Trips</button>
+                    <button onClick={() => setActiveTab('refunds')} className={`w-full text-left py-2 px-4 rounded ${activeTab === 'refunds' ? 'bg-gray-800' : 'hover:bg-gray-800'}`}>Refunds</button>
+                    <button onClick={() => navigate('/')} className="w-full text-left py-2 px-4 rounded hover:bg-gray-800 text-red-400 mt-10">Exit</button>
+                </nav>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 p-8">
+                {activeTab === 'dashboard' && (
+                    <div>
+                        <h2 className="text-3xl font-bold mb-6">Dashboard Summary</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="bg-white p-6 rounded-xl shadow-md">
+                                <h3 className="text-gray-500 font-medium">Total Tickets Sold</h3>
+                                <p className="text-4xl font-bold mt-2">{stats.total_tickets_sold || 0}</p>
+                            </div>
+                            <div className="bg-white p-6 rounded-xl shadow-md">
+                                <h3 className="text-gray-500 font-medium">Active Buses</h3>
+                                <p className="text-4xl font-bold mt-2">{stats.total_active_buses || 0}</p>
+                            </div>
+                            <div className="bg-white p-6 rounded-xl shadow-md">
+                                <h3 className="text-gray-500 font-medium">Pending Refunds</h3>
+                                <p className="text-4xl font-bold mt-2 text-yellow-600">{stats.pending_refunds || 0}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'buses' && (
+                    <div>
+                        <h2 className="text-3xl font-bold mb-6">Manage Buses</h2>
+
+                        {/* Add Bus Form */}
+                        <div className="bg-white p-6 rounded-xl shadow-md mb-8">
+                            <h3 className="text-xl font-bold mb-4">Add New Bus</h3>
+                            <form onSubmit={handleAddBus} className="flex flex-wrap gap-4 items-end">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Bus Number</label>
+                                    <input type="text" value={newBus.bus_number} onChange={e => setNewBus({ ...newBus, bus_number: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" required />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Total Seats</label>
+                                    <input type="number" value={newBus.total_seats} onChange={e => setNewBus({ ...newBus, total_seats: parseInt(e.target.value) })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" required />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Type</label>
+                                    <select value={newBus.type} onChange={e => setNewBus({ ...newBus, type: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                                        <option value="Non-AC">Non-AC</option>
+                                        <option value="AC">AC</option>
+                                        <option value="Sleeper">Sleeper</option>
+                                    </select>
+                                </div>
+                                <button type="submit" className="bg-black text-white px-6 py-2 rounded-md hover:bg-gray-800">Add Bus</button>
+                            </form>
+                        </div>
+
+                        {/* Bus List Table */}
+                        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bus Number</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seats</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {buses.map(bus => (
+                                        <tr key={bus.id}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.id}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bus.bus_number}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.type}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bus.total_seats}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {(activeTab === 'trips' || activeTab === 'refunds') && (
+                    <div className="text-center py-20 bg-white rounded-xl shadow-md">
+                        <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
+                        <p className="text-gray-500">This module is under development.</p>
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+};
+
+export default AdminDashboard;

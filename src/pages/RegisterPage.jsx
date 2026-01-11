@@ -21,7 +21,7 @@ export default function RegisterPage() {
     setShowPopup(true);
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
 
     // Empty field checks
@@ -66,36 +66,42 @@ export default function RegisterPage() {
 
     const cleanedEmail = email.trim().toLowerCase();
 
-    // Get existing users
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    try {
+      const response = await fetch("http://localhost:8000/users/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          full_name: fullname.trim(),
+          email: cleanedEmail,
+          password: password,
+        }),
+      });
 
-    // Check if user already exists
-    const existingUser = users.find(
-      (u) => (u.email || "").toLowerCase() === cleanedEmail
-    );
+      if (response.ok) {
+        const data = await response.json();
+        // Success popup
+        setPopupType("success");
+        setShowPopup(true);
 
-    if (existingUser) {
-      setPopupType("exists");
-      setShowPopup(true);
-      return;
+        // Optionally save basic info to local storage for session management if needed
+        // But ideally, login should handle this.
+        localStorage.setItem("currentUser", JSON.stringify(data));
+
+      } else {
+        const errorData = await response.json();
+        if (response.status === 400 && errorData.detail === "Email already registered") {
+          setPopupType("exists");
+          setShowPopup(true);
+        } else {
+          showErrorPopup(errorData.detail || "Registration failed.");
+        }
+      }
+    } catch (error) {
+      showErrorPopup("Network error: Could not connect to server.");
+      console.error("Registration error:", error);
     }
-
-    // Create new user
-    const newUser = {
-      fullname: fullname.trim(),
-      email: cleanedEmail,
-      phone,
-      password,
-      role: "user",
-    };
-
-    users.push(newUser);
-    localStorage.setItem("users", JSON.stringify(users));
-    localStorage.setItem("currentUser", JSON.stringify(newUser));
-
-    // Success popup
-    setPopupType("success");
-    setShowPopup(true);
   };
 
   const closePopup = () => setShowPopup(false);

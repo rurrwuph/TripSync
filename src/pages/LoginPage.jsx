@@ -29,7 +29,7 @@ export default function LoginPage() {
 
       if (foundAdmin) {
         localStorage.setItem('currentUser', JSON.stringify({ ...foundAdmin, role: 'admin' }));
-        navigate("/profile");
+        navigate("/admin");
         return;
       }
 
@@ -112,8 +112,8 @@ export default function LoginPage() {
               />
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading}
               className="w-full py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition disabled:opacity-50"
             >
