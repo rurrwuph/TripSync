@@ -46,12 +46,8 @@ export default function SeatPage() {
     const rows = Math.ceil(estimatedTotalSeats / cols);
     const seatLetters = ['A', 'B', 'C', 'D'];
 
-    // --- Simulation Logic ---
-    const totalCapacity = rows * cols;
-    const realAvailableCount = parseInt(trip.seats) || totalCapacity;
-    const countToMarkBooked = Math.max(0, totalCapacity - realAvailableCount);
-
-    const bookedSeatsFromStorage = JSON.parse(localStorage.getItem(`bookedSeats_trip_${trip.id}`)) || [];
+    const [bookedSeats, setBookedSeats] = useState([]);
+    const [isLoadingSeats, setIsLoadingSeats] = useState(true);
 
     // Generate all seat IDs
     const allPossibleSeats = [];
@@ -61,28 +57,35 @@ export default function SeatPage() {
         }
     }
 
-    // Fill booked seats to match the count
-    // We prioritize using real user bookings, then fill the rest with simulated ones (filling from front)
-    let bookedSeatsForTrip = [...bookedSeatsFromStorage];
-
-    // If we have TOO MANY mapped booked seats, we must unbook some to match the available count from API
-    // (This overrides local storage/mock data if they conflict with the source of truth)
-    if (countToMarkBooked < bookedSeatsForTrip.length) {
-        bookedSeatsForTrip = bookedSeatsForTrip.slice(0, countToMarkBooked);
-    }
-    // If we need MORE booked seats
-    else if (countToMarkBooked > bookedSeatsForTrip.length) {
-        const needed = countToMarkBooked - bookedSeatsForTrip.length;
-        const simulated = allPossibleSeats.filter(s => !bookedSeatsForTrip.includes(s)).slice(0, needed);
-        bookedSeatsForTrip = [...bookedSeatsForTrip, ...simulated];
-    }
+    useEffect(() => {
+        const fetchAvailableSeats = async () => {
+            setIsLoadingSeats(true);
+            try {
+                // Ensure the trip object has all details for lookup
+                const response = await fetch("http://localhost:8000/tickets/availability", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ trip_details: trip })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setBookedSeats(data);
+                }
+            } catch (error) {
+                console.error("Error fetching availability:", error);
+            } finally {
+                setIsLoadingSeats(false);
+            }
+        };
+        fetchAvailableSeats();
+    }, [trip.operator, trip.from, trip.to, trip.date, trip.time]);
 
     const seats = allPossibleSeats.map(seatNumber => {
         const cIndex = seatLetters.indexOf(seatNumber.charAt(0));
         return {
             number: seatNumber,
             type: (cIndex === 0 || cIndex === 3) ? "Window" : "Aisle",
-            booked: bookedSeatsForTrip.includes(seatNumber),
+            booked: bookedSeats.includes(seatNumber),
         };
     });
 
@@ -157,13 +160,18 @@ export default function SeatPage() {
             </section>
 
             <div className="flex flex-grow mt-6 max-w-7xl mx-auto gap-8 px-6">
+                {isLoadingSeats && (
+                    <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                    </div>
+                )}
                 {message && (
                     <p className="text-center text-red-500 font-medium mb-4">
                         {message}
                     </p>
                 )}
                 {/* Seat Layout */}
-                <div className="flex-grow grid grid-rows-8 gap-y-3">
+                <div className="flex-grow grid grid-rows-8 gap-y-3 relative">
                     {Array.from({ length: rows }, (_, r) => (
                         <div key={r} className="flex justify-between gap-2">
                             {/* First two seats */}

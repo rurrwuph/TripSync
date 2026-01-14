@@ -36,6 +36,8 @@ class BusOut(BusBase):
 class TripBase(BaseModel):
     bus_id: int
     route: str
+    from_location: Optional[str] = None
+    to_location: Optional[str] = None
     departure_time: datetime
     base_fare: float
 
@@ -82,3 +84,6 @@ class BookingRequest(BaseModel):
     trip_details: dict  # Contains scraped trip info
     selected_seats: List[str]
     total_price: float
+
+class AvailabilityRequest(BaseModel):
+    trip_details: dict

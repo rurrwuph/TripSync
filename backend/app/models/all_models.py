@@ -31,6 +31,8 @@ class Trip(Base):
     id = Column(Integer, primary_key=True, index=True)
     bus_id = Column(Integer, ForeignKey("buses.id"))
     route = Column(String) # e.g. "Dhaka-Chittagong"
+    from_location = Column(String)
+    to_location = Column(String)
     departure_time = Column(DateTime)
     base_fare = Column(Float)
 
@@ -45,6 +47,7 @@ class Ticket(Base):
     trip_id = Column(Integer, ForeignKey("trips.id"))
     seat_number = Column(String)
     status = Column(String, default="booked") # booked, cancelled, completed
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="tickets")
     trip = relationship("Trip", back_populates="tickets")

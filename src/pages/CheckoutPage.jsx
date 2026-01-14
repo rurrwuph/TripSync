@@ -8,6 +8,8 @@ const CheckoutPage = () => {
   const { trip, selectedSeats, totalPrice, paymentSuccess } = location.state || {};
   const [successMessage, setSuccessMessage] = useState("");
 
+  const [isBooking, setIsBooking] = useState(false);
+
   useEffect(() => {
     if (paymentSuccess) {
       handleConfirmBooking();
@@ -51,8 +53,6 @@ const CheckoutPage = () => {
     );
   }
 
-  const savedSeats = JSON.parse(localStorage.getItem(`bookedSeats_trip_${trip.id}`)) || [];
-  const [bookedSeats, setBookedSeats] = useState(savedSeats);
 
   const handleConfirmBooking = async () => {
     // Check if user is logged in
@@ -64,6 +64,7 @@ const CheckoutPage = () => {
     }
 
     try {
+      setIsBooking(true);
       const response = await fetch("http://localhost:8000/tickets/book", {
         method: "POST",
         headers: {
@@ -78,14 +79,6 @@ const CheckoutPage = () => {
       });
 
       if (response.ok) {
-        // Update local storage for immediate UI reflection (optional but good for consistency)
-        const updatedSeats = [...bookedSeats, ...selectedSeats];
-        setBookedSeats(updatedSeats);
-        localStorage.setItem(
-          `bookedSeats_trip_${trip.id}`,
-          JSON.stringify(updatedSeats)
-        );
-
         // --- Save to User History in Local Storage (Legacy/Frontend Cache) ---
         // You might want to fetch this from API later, but keeping it for now doesn't hurt.
         const bookingRecord = {
@@ -114,6 +107,8 @@ const CheckoutPage = () => {
     } catch (error) {
       console.error("Booking error:", error);
       alert("Network error. Could not book tickets.");
+    } finally {
+      setIsBooking(false);
     }
   };
 
@@ -223,9 +218,11 @@ const CheckoutPage = () => {
             {user ? (
               <button
                 onClick={() => navigate('/payment/bkash', { state: { trip, selectedSeats, totalPrice } })}
-                className="flex-1 py-3 md:px-8 bg-[#E2136E] text-white font-bold rounded-xl hover:bg-[#c2105e] hover:scale-105 transform transition-all shadow-lg"
+                disabled={isBooking || paymentSuccess}
+                className={`flex-1 py-3 md:px-8 bg-[#E2136E] text-white font-bold rounded-xl transform transition-all shadow-lg ${(isBooking || paymentSuccess) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#c2105e] hover:scale-105'
+                  }`}
               >
-                Pay with bKash
+                {isBooking ? 'Processing Booking...' : paymentSuccess ? 'Payment Successful' : 'Pay with bKash'}
               </button>
             ) : (
               <button
@@ -237,7 +234,7 @@ const CheckoutPage = () => {
             )}
 
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate('/explore')}
               className="flex-1 py-3 md:px-8 bg-gray-200 text-gray-800 font-bold rounded-xl hover:bg-gray-300 hover:scale-105 transform transition-all shadow-lg"
             >
               Back

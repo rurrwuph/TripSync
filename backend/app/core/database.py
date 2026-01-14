@@ -13,6 +13,9 @@ load_dotenv(env_path)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+if DATABASE_URL and (DATABASE_URL.startswith("'") or DATABASE_URL.startswith('"')):
+    DATABASE_URL = DATABASE_URL[1:-1]
+
 if not DATABASE_URL:
     print("WARNING: DATABASE_URL not found in env. DB operations will fail.")
     # Fallback to prevent immediate import crash, but connection will fail

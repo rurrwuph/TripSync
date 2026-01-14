@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import TicketChart from '../../components/TicketChart';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [stats, setStats] = useState({ total_tickets_sold: 0, total_active_buses: 0, pending_refunds: 0 });
     const [buses, setBuses] = useState([]);
     const [newBus, setNewBus] = useState({ bus_number: '', total_seats: 36, type: 'Non-AC' });
+    const [error, setError] = useState(null);
     const navigate = useNavigate();
 
     // Fetch Stats
@@ -28,10 +30,15 @@ const AdminDashboard = () => {
     const fetchStats = async () => {
         try {
             const res = await fetch('http://localhost:8000/admin/dashboard/summary', { headers: getAuthHeaders() });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.detail || 'Failed to fetch summary');
+            }
             const data = await res.json();
             setStats(data);
         } catch (err) {
-            console.error(err);
+            console.error("Dashboard Summary Error:", err);
+            setError(err.message);
         }
     };
 
@@ -81,6 +88,13 @@ const AdminDashboard = () => {
 
             {/* Main Content */}
             <main className="flex-1 p-8">
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex justify-between items-center">
+                        <p><strong>Error:</strong> {error}</p>
+                        <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">✕</button>
+                    </div>
+                )}
+
                 {activeTab === 'dashboard' && (
                     <div>
                         <h2 className="text-3xl font-bold mb-6">Dashboard Summary</h2>
@@ -97,6 +111,10 @@ const AdminDashboard = () => {
                                 <h3 className="text-gray-500 font-medium">Pending Refunds</h3>
                                 <p className="text-4xl font-bold mt-2 text-yellow-600">{stats.pending_refunds || 0}</p>
                             </div>
+                        </div>
+
+                        <div className="mt-8">
+                            <TicketChart />
                         </div>
                     </div>
                 )}
