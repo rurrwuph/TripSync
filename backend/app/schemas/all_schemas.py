@@ -68,11 +68,20 @@ class TicketOut(TicketBase):
 
 # --- Refund Schemas ---
 class RefundCreate(BaseModel):
-    ticket_id: int
+    ticket_id: Optional[int] = None # For backward compatibility
+    ticket_ids: Optional[List[int]] = None # New format
+    seat_numbers: Optional[List[str]] = None # New format
+    user_email: str
     amount: float
+    cause: str
 
-class RefundOut(RefundCreate):
+class RefundOut(BaseModel):
     id: int
+    ticket_id: Optional[int] = None
+    ticket_ids: Optional[str] = None
+    seat_numbers: Optional[str] = None
+    amount: float
+    cause: str
     refund_date: datetime
     status: str
     class Config:

@@ -5,6 +5,7 @@ from datetime import datetime
 from app.api.deps import get_db
 from app.schemas import all_schemas as schemas
 import app.models.all_models as models
+from app.services.mail_service import mail_service
 
 router = APIRouter()
 
@@ -107,9 +108,27 @@ def book_ticket(booking: schemas.BookingRequest, db: Session = Depends(get_db)):
         db.add(ticket)
         new_tickets.append(ticket)
     
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        # Check if it's a unique constraint violation
+        if "_trip_seat_uc" in str(e):
+             raise HTTPException(status_code=400, detail="One or more selected seats have already been booked by another user.")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
     for t in new_tickets:
         db.refresh(t)
+        
+    # Send Confirmation Email (Mock)
+    try:
+        mail_service.send_booking_confirmation(
+            user_email=booking.user_email,
+            trip_details=booking.trip_details,
+            seats=booking.selected_seats
+        )
+    except Exception as e:
+        print(f"Failed to send confirmation email: {e}")
         
     return new_tickets
 

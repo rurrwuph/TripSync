@@ -6,6 +6,7 @@ const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [stats, setStats] = useState({ total_tickets_sold: 0, total_active_buses: 0, pending_refunds: 0 });
     const [buses, setBuses] = useState([]);
+    const [refunds, setRefunds] = useState([]);
     const [newBus, setNewBus] = useState({ bus_number: '', total_seats: 36, type: 'Non-AC' });
     const [error, setError] = useState(null);
     const navigate = useNavigate();
@@ -16,6 +17,8 @@ const AdminDashboard = () => {
             fetchStats();
         } else if (activeTab === 'buses') {
             fetchBuses();
+        } else if (activeTab === 'refunds') {
+            fetchRefunds();
         }
     }, [activeTab]);
 
@@ -47,6 +50,33 @@ const AdminDashboard = () => {
             const res = await fetch('http://localhost:8000/admin/buses', { headers: getAuthHeaders() });
             const data = await res.json();
             setBuses(data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const fetchRefunds = async () => {
+        try {
+            const res = await fetch('http://localhost:8000/refunds', { headers: getAuthHeaders() });
+            const data = await res.json();
+            setRefunds(data);
+        } catch (err) {
+            console.error("Fetch Refunds Error:", err);
+        }
+    };
+
+    const handleUpdateRefundStatus = async (refundId, status) => {
+        try {
+            const res = await fetch(`http://localhost:8000/refunds/${refundId}/status?status=${status}`, {
+                method: 'PUT',
+                headers: getAuthHeaders()
+            });
+            if (res.ok) {
+                fetchRefunds();
+                fetchStats();
+            } else {
+                alert('Failed to update refund status');
+            }
         } catch (err) {
             console.error(err);
         }
@@ -173,7 +203,76 @@ const AdminDashboard = () => {
                     </div>
                 )}
 
-                {(activeTab === 'trips' || activeTab === 'refunds') && (
+                {activeTab === 'refunds' && (
+                    <div>
+                        <h2 className="text-3xl font-bold mb-6">Manage Refunds</h2>
+                        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seats</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticket IDs</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cause</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {refunds.map(refund => (
+                                        <tr key={refund.id}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                                                {refund.seat_numbers || refund.ticket?.seat_number || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                #{refund.ticket_ids || refund.ticket_id || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">৳{refund.amount}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{refund.cause}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${refund.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                    refund.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                                        'bg-red-100 text-red-800'
+                                                    }`}>
+                                                    {refund.status.toUpperCase()}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {new Date(refund.refund_date).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                {refund.status === 'pending' && (
+                                                    <div className="flex justify-end gap-2">
+                                                        <button
+                                                            onClick={() => handleUpdateRefundStatus(refund.id, 'approved')}
+                                                            className="text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded-lg transition"
+                                                        >
+                                                            Approve
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleUpdateRefundStatus(refund.id, 'rejected')}
+                                                            className="text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg transition"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {refunds.length === 0 && (
+                                        <tr>
+                                            <td colSpan="6" className="px-6 py-10 text-center text-gray-500">No refund requests found.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'trips' && (
                     <div className="text-center py-20 bg-white rounded-xl shadow-md">
                         <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
                         <p className="text-gray-500">This module is under development.</p>

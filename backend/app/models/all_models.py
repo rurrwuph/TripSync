@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -53,12 +53,17 @@ class Ticket(Base):
     trip = relationship("Trip", back_populates="tickets")
     refund = relationship("Refund", uselist=False, back_populates="ticket")
 
+    __table_args__ = (UniqueConstraint('trip_id', 'seat_number', name='_trip_seat_uc'),)
+
 class Refund(Base):
     __tablename__ = "refunds"
 
     id = Column(Integer, primary_key=True, index=True)
-    ticket_id = Column(Integer, ForeignKey("tickets.id"), unique=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), unique=True, nullable=True) # Keep for backward compatibility/single
+    ticket_ids = Column(String, nullable=True) # Comma-separated IDs: "1,2,3"
+    seat_numbers = Column(String, nullable=True) # Comma-separated seats: "A1,A2"
     amount = Column(Float)
+    cause = Column(String, nullable=True)
     refund_date = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String, default="pending") # pending, approved, rejected
 

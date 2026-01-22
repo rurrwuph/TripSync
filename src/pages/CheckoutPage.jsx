@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 
@@ -7,11 +7,13 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const { trip, selectedSeats, totalPrice, paymentSuccess } = location.state || {};
   const [successMessage, setSuccessMessage] = useState("");
+  const bookingProcessed = useRef(false);
 
   const [isBooking, setIsBooking] = useState(false);
 
   useEffect(() => {
-    if (paymentSuccess) {
+    if (paymentSuccess && !bookingProcessed.current) {
+      bookingProcessed.current = true;
       handleConfirmBooking();
     }
   }, [paymentSuccess]);
@@ -79,26 +81,8 @@ const CheckoutPage = () => {
       });
 
       if (response.ok) {
-        // --- Save to User History in Local Storage (Legacy/Frontend Cache) ---
-        // You might want to fetch this from API later, but keeping it for now doesn't hurt.
-        const bookingRecord = {
-          id: Date.now(),
-          tripId: trip.id,
-          from: trip.from,
-          to: trip.to,
-          date: trip.date || "N/A",
-          time: trip.time,
-          seats: selectedSeats,
-          totalPrice: totalPrice,
-          bookedAt: new Date().toISOString()
-        };
-        const userHistoryKey = `tripSync_bookings_${currentUser.email}`;
-        const existingHistory = JSON.parse(localStorage.getItem(userHistoryKey)) || [];
-        localStorage.setItem(userHistoryKey, JSON.stringify([bookingRecord, ...existingHistory]));
-
         setSuccessMessage(selectedSeats.join(", "));
         setTimeout(() => setSuccessMessage(""), 4000);
-
       } else {
         const errorData = await response.json();
         alert(`Booking failed: ${errorData.detail}`);
