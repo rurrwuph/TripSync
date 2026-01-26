@@ -68,7 +68,8 @@ const ProfilePage = () => {
               id: ticket.id,
               seat: ticket.seat_number,
               amount: trip.base_fare,
-              status: ticket.status
+              status: ticket.status,
+              refund_status: ticket.refund_status
             });
             return acc;
           }, {});
@@ -141,9 +142,20 @@ const ProfilePage = () => {
     return new Date(bookedAt) > new Date();
   };
 
-  // Check if all tickets in a booking are pending cancellation
-  const isPendingCancellation = (booking) => {
-    return booking.tickets.every(t => t.status === 'CANCELLATION PENDING' || t.status === 'cancelled');
+  // Get the combined status of a booking
+  const getBookingStatus = (booking) => {
+    // If any ticket has a refund status, use that
+    const refundStatuses = booking.tickets.map(t => t.refund_status).filter(Boolean);
+    if (refundStatuses.length > 0) {
+      const status = refundStatuses[0]; // Assuming consistency in the group
+      if (status === 'pending') return 'CANCELLATION PENDING';
+      if (status === 'approved') return 'REFUNDED';
+      if (status === 'rejected') return 'REJECTED';
+    }
+
+    // Fallback to ticket status
+    if (booking.tickets.some(t => t.status === 'cancelled')) return 'CANCELLED';
+    return 'CONFIRMED';
   };
 
   return (
@@ -261,8 +273,14 @@ const ProfilePage = () => {
             ) : (
               <div className="space-y-4">
                 {bookings.map((booking) => {
-                  const pending = isPendingCancellation(booking);
+                  const statusLabel = getBookingStatus(booking);
                   const isFuture = isFutureTrip(booking.bookedAt);
+                  const canCancel = isFuture && statusLabel === 'CONFIRMED';
+
+                  let badgeColor = 'bg-green-50 text-green-700 border-green-100';
+                  if (statusLabel === 'CANCELLATION PENDING') badgeColor = 'bg-yellow-50 text-yellow-700 border-yellow-100';
+                  if (statusLabel === 'REFUNDED' || statusLabel === 'CANCELLED') badgeColor = 'bg-red-50 text-red-700 border-red-100';
+                  if (statusLabel === 'REJECTED') badgeColor = 'bg-gray-100 text-gray-700 border-gray-200';
 
                   return (
                     <div key={booking.id} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col md:flex-row justify-between gap-6">
@@ -286,7 +304,7 @@ const ProfilePage = () => {
                         </div>
 
                         <div className="flex items-center gap-3">
-                          {isFuture && !pending && (
+                          {canCancel && (
                             <button
                               onClick={() => handleCancelClick(booking)}
                               className="px-4 py-1.5 rounded-full border border-red-200 text-red-600 text-xs font-bold hover:bg-red-50 transition"
@@ -294,11 +312,8 @@ const ProfilePage = () => {
                               Cancel Ticket
                             </button>
                           )}
-                          <span className={`inline-block px-3 py-1 text-xs font-bold rounded-full border ${pending
-                            ? 'bg-yellow-50 text-yellow-700 border-yellow-100'
-                            : 'bg-green-50 text-green-700 border-green-100'
-                            }`}>
-                            {pending ? 'CANCELLATION PENDING' : 'CONFIRMED'}
+                          <span className={`inline-block px-3 py-1 text-xs font-bold rounded-full border ${badgeColor}`}>
+                            {statusLabel}
                           </span>
                         </div>
                       </div>

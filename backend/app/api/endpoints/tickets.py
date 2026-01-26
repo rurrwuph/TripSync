@@ -144,4 +144,18 @@ def get_user_tickets(email: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
         
     tickets = db.query(models.Ticket).filter(models.Ticket.user_id == user.id).all()
+    
+    # Manually attach refund_status to avoid schema issues if relationship isn't eager
+    for ticket in tickets:
+        if ticket.refund:
+            ticket.refund_status = ticket.refund.status
+        else:
+            # Check if it's part of a group refund
+            # (Finding if this ticket_id is inside any comma-separated ticket_ids string)
+            group_refund = db.query(models.Refund).filter(models.Refund.ticket_ids.like(f"%{ticket.id}%")).first()
+            if group_refund:
+                ticket.refund_status = group_refund.status
+            else:
+                ticket.refund_status = None
+                
     return tickets

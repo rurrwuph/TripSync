@@ -63,6 +63,7 @@ class TicketOut(TicketBase):
     user_id: int
     status: str
     trip: Optional[TripOut] = None
+    refund_status: Optional[str] = None # New field
     class Config:
         from_attributes = True
 
