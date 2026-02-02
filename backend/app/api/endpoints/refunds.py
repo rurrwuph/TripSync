@@ -14,11 +14,35 @@ def request_refund(refund: RefundCreate, db: Session = Depends(get_db)):
     t_ids_str = ",".join(map(str, refund.ticket_ids)) if refund.ticket_ids else None
     seats_str = ",".join(refund.seat_numbers) if refund.seat_numbers else None
     
-    # Check if refund already exists for any of these tickets (simplified check)
+    # Check if refund already exists for any of these tickets
+    check_ids = []
     if refund.ticket_ids:
-        for tid in refund.ticket_ids:
-            # We could do a more complex check, but for now let's just create a new group
-            pass
+        check_ids.extend(refund.ticket_ids)
+    elif refund.ticket_id:
+        check_ids.append(refund.ticket_id)
+
+    if check_ids:
+        # Check for existing pending or approved refunds that might overlap
+        # Since ticket_ids is a comma-separated string, we'll fetch pending/approved and check in Python
+        existing_refunds = db.query(models.Refund).filter(
+            models.Refund.status.in_(["pending", "approved"])
+        ).all()
+        
+        for er in existing_refunds:
+            er_ids = []
+            if er.ticket_ids:
+                try:
+                    er_ids = [int(x.strip()) for x in er.ticket_ids.split(",") if x.strip()]
+                except ValueError:
+                    continue
+            elif er.ticket_id:
+                er_ids = [er.ticket_id]
+                
+            if any(tid in er_ids for tid in check_ids):
+                raise HTTPException(
+                    status_code=400, 
+                    detail="A refund request already exists (pending or approved) for one or more of these seats."
+                )
 
     db_refund = models.Refund(
         ticket_id=refund.ticket_id,

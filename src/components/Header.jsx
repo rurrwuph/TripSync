@@ -104,12 +104,14 @@ const Header = () => {
                       Admin Dashboard
                     </button>
                   )}
-                  <button
-                    onClick={() => navigate("/profile")}
-                    className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
-                  >
-                    My Tickets
-                  </button>
+                  {user.role !== 'admin' && (
+                    <button
+                      onClick={() => navigate("/profile")}
+                      className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
+                    >
+                      My Tickets
+                    </button>
+                  )}
                   <button
                     onClick={handleSwitchAccount}
                     className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
@@ -175,12 +177,14 @@ const Header = () => {
                   Admin Dashboard
                 </button>
               )}
-              <button
-                onClick={() => navigate("/profile")}
-                className="block py-2 w-full text-left"
-              >
-                My Tickets
-              </button>
+              {user.role !== 'admin' && (
+                <button
+                  onClick={() => navigate("/profile")}
+                  className="block py-2 w-full text-left"
+                >
+                  My Tickets
+                </button>
+              )}
               <button
                 onClick={(handleSwitchAccount)}
                 className="block py-2 w-full text-left"

@@ -119,7 +119,14 @@ const ProfilePage = () => {
         // Update local UI
         setBookings(prev => prev.map(b =>
           b.id === selectedBooking.id
-            ? { ...b, tickets: b.tickets.map(t => ({ ...t, status: 'CANCELLATION PENDING' })) }
+            ? {
+              ...b,
+              tickets: b.tickets.map(t => ({
+                ...t,
+                status: 'cancelled',
+                refund_status: 'pending'
+              }))
+            }
             : b
         ));
         setIsModalOpen(false);

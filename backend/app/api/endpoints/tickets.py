@@ -150,9 +150,14 @@ def get_user_tickets(email: str, db: Session = Depends(get_db)):
         if ticket.refund:
             ticket.refund_status = ticket.refund.status
         else:
-            # Check if it's part of a group refund
-            # (Finding if this ticket_id is inside any comma-separated ticket_ids string)
-            group_refund = db.query(models.Refund).filter(models.Refund.ticket_ids.like(f"%{ticket.id}%")).first()
+            # Finding if this ticket_id is inside any comma-separated ticket_ids string
+            # We check for: exact match, starts with "ID,", ends with ",ID", or contains ",ID,"
+            group_refund = db.query(models.Refund).filter(
+                (models.Refund.ticket_ids == str(ticket.id)) |
+                (models.Refund.ticket_ids.like(f"%,{ticket.id},%")) |
+                (models.Refund.ticket_ids.like(f"{ticket.id},%")) |
+                (models.Refund.ticket_ids.like(f"%,{ticket.id}"))
+            ).first()
             if group_refund:
                 ticket.refund_status = group_refund.status
             else:
