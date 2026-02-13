@@ -13,6 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import engine, Base
 import app.models.all_models as models
 from app.services.scraper_service import scrape_shohoz
+from app.services import trip_service
+from app.api.deps import get_db
+from sqlalchemy.orm import Session
 
 # Import Routers
 from app.api.endpoints import users, buses, trips, tickets, refunds, admin
@@ -177,6 +180,8 @@ async def chat_endpoint(request: ChatRequest):
             if origin and destination:
                 reply = f"Searching for buses from {origin} to {destination}..."
                 trips = scrape_shohoz(origin, destination, date)
+                for t in trips:
+                    t['date'] = date
                 
                 sort_by = params.get("sort")
                 if sort_by == "price_asc":
@@ -192,6 +197,9 @@ async def chat_endpoint(request: ChatRequest):
                     reply = f"Found {len(trips)} buses! Here are the earliest ones."
 
                 if trips:
+                    # Enrich with local availability
+                    db = next(get_db())
+                    trips = trip_service.enrich_trips_with_availability(db, trips)
                     data = {"trips": trips}
                     if not sort_by:
                         reply = f"Found {len(trips)} buses for you!"
@@ -216,11 +224,15 @@ class SearchRequest(BaseModel):
     date: str
 
 @app.post("/api/search")
-async def search_trips(request: SearchRequest):
+async def search_trips(request: SearchRequest, db: Session = Depends(get_db)):
     try:
         print(f"Searching for: {request.origin} -> {request.destination} on {request.date}")
         trips = scrape_shohoz(request.origin, request.destination, request.date)
-        return {"trips": trips, "count": len(trips)}
+        # Stability fix: Inject date into trip objects so they generate consistent IDs
+        for t in trips:
+            t['date'] = request.date
+        enriched_trips = trip_service.enrich_trips_with_availability(db, trips)
+        return {"trips": enriched_trips, "count": len(enriched_trips)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

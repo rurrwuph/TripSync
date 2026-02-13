@@ -22,7 +22,7 @@ const TripDetails = ({ trip }) => {
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Seats</p>
-                        <p className="text-lg font-semibold">{trip.seats} available</p>
+                        <p className="text-lg font-semibold">{trip.available_seats || trip.seats} available</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Operator</p>

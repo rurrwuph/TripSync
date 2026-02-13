@@ -12,11 +12,18 @@ router = APIRouter()
 
 @router.post("/availability")
 def get_availability(request: schemas.AvailabilityRequest, db: Session = Depends(get_db)):
+    # Legacy: returns simple list
     return trip_service.get_seat_overlay(db, request.trip_details)
 
-@router.post("/seat-overlay", response_model=List[str])
+@router.post("/seat-overlay")
 def seat_overlay(request: schemas.AvailabilityRequest, db: Session = Depends(get_db)):
-    return trip_service.get_seat_overlay(db, request.trip_details)
+    trip = trip_service.get_or_create_trip(db, request.trip_details)
+    booked_seats = trip_service.get_seat_overlay(db, request.trip_details)
+    return {
+        "booked_seats": booked_seats,
+        "total_seats": trip.bus.total_seats if trip.bus else 36,
+        "operator": trip.bus.bus_number if trip.bus else "Unknown"
+    }
 
 @router.post("/book", response_model=List[schemas.TicketOut])
 def book_ticket(booking: schemas.BookingRequest, db: Session = Depends(get_db)):

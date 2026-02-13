@@ -42,8 +42,8 @@ export default function SeatPage() {
     const departureTime = trip.time;
     const seatPrice = trip.price;
     const cols = 4;
-    const estimatedTotalSeats = trip.total_seats || 36;
-    const rows = Math.ceil(estimatedTotalSeats / cols);
+    const [totalSeats, setTotalSeats] = useState(trip.total_seats || 36);
+    const rows = Math.ceil(totalSeats / cols);
     const seatLetters = ['A', 'B', 'C', 'D'];
 
     const [bookedSeats, setBookedSeats] = useState([]);
@@ -62,14 +62,15 @@ export default function SeatPage() {
             setIsLoadingSeats(true);
             try {
                 // Ensure the trip object has all details for lookup
-                const response = await fetch("http://localhost:8000/tickets/availability", {
+                const response = await fetch("http://localhost:8000/tickets/seat-overlay", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ trip_details: trip })
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    setBookedSeats(data);
+                    setBookedSeats(data.booked_seats || []);
+                    if (data.total_seats) setTotalSeats(data.total_seats);
                 }
             } catch (error) {
                 console.error("Error fetching availability:", error);
@@ -171,7 +172,7 @@ export default function SeatPage() {
                     </p>
                 )}
                 {/* Seat Layout */}
-                <div className="flex-grow grid grid-rows-8 gap-y-3 relative">
+                <div className={`flex-grow grid gap-y-3 relative`} style={{ gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}>
                     {Array.from({ length: rows }, (_, r) => (
                         <div key={r} className="flex justify-between gap-2">
                             {/* First two seats */}
@@ -179,7 +180,7 @@ export default function SeatPage() {
                                 <div
                                     key={seat.number}
                                     className={`w-14 h-14 flex items-center justify-center rounded-lg cursor-pointer transition transform hover:scale-105
-                    ${selectedSeats.includes(seat.number) ? 'bg-green-500 text-white' : seat.booked ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-white hover:bg-gray-200'}`}
+                    ${selectedSeats.includes(seat.number) ? 'bg-green-500 text-white' : seat.booked ? 'bg-gray-400 text-white cursor-not-allowed pointer-events-none' : 'bg-white hover:bg-gray-200'}`}
                                     onClick={() => !seat.booked && toggleSeat(seat)}
                                 >
                                     {seat.number}
@@ -194,7 +195,7 @@ export default function SeatPage() {
                                 <div
                                     key={seat.number}
                                     className={`w-14 h-14 flex items-center justify-center rounded-lg cursor-pointer transition transform hover:scale-105
-                    ${selectedSeats.includes(seat.number) ? 'bg-green-500 text-white' : seat.booked ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-white hover:bg-gray-200'}`}
+                    ${selectedSeats.includes(seat.number) ? 'bg-green-500 text-white' : seat.booked ? 'bg-gray-400 text-white cursor-not-allowed pointer-events-none' : 'bg-white hover:bg-gray-200'}`}
                                     onClick={() => {
                                         if (seat.booked) {
 

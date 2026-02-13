@@ -22,25 +22,58 @@ export default function TripPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
-  // Sorting State
+  // Sorting and Filtering State
   const [sortOption, setSortOption] = useState("default");
+  const [timeFilter, setTimeFilter] = useState("all");
 
-  // Sorting Logic
-  const getSortedTrips = () => {
-    let sorted = [...trips];
+  // Filtering and Sorting Logic
+  const getProcessedTrips = () => {
+    let processed = [...trips];
+
+    // 1. Time Filtering
+    if (timeFilter !== "all") {
+      processed = processed.filter(trip => {
+        const t = parseTime(trip.time);
+        if (timeFilter === "morning") return t >= 360 && t < 720; // 6 AM - 12 PM
+        if (timeFilter === "afternoon") return t >= 720 && t < 1080; // 12 PM - 6 PM
+        if (timeFilter === "evening") return t >= 1080 && t < 1439; // 6 PM - 12 AM
+        if (timeFilter === "night") return t >= 0 && t < 360; // 12 AM - 6 AM
+        return true;
+      });
+    }
+
+    // 2. Sorting
     switch (sortOption) {
       case "price_low":
-        return sorted.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+        processed.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+        break;
       case "price_high":
-        return sorted.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+        processed.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+        break;
       case "time_earliest":
-        return sorted.sort((a, b) => parseTime(a.time) - parseTime(b.time));
+        processed.sort((a, b) => parseTime(a.time) - parseTime(b.time));
+        break;
       case "time_latest":
-        return sorted.sort((a, b) => parseTime(b.time) - parseTime(a.time));
+        processed.sort((a, b) => parseTime(b.time) - parseTime(a.time));
+        break;
       default:
-        return sorted;
+        break;
     }
+    return processed;
   };
+
+  const BANGLADESH_CITIES = [
+    "Dhaka", "Chittagong", "Cox's Bazar", "Sylhet", "Rajshahi", "Khulna", "Barisal",
+    "Rangpur", "Mymensingh", "Cumilla", "Gazipur", "Narayanganj", "Bogra", "Noakhali",
+    "Feni", "Brahmanbaria", "Chandpur", "Lakshmipur", "Rangamati", "Bandarban",
+    "Khagrachari", "Sunamganj", "Habiganj", "Moulvibazar", "Jashore", "Satkhira",
+    "Meherpur", "Kushtia", "Magura", "Narail", "Bagerhat", "Chuadanga", "Jhenaidah",
+    "Pabna", "Sirajganj", "Joypurhat", "Naogaon", "Natore", "Chapai Nawabganj",
+    "Kurigram", "Gaibandha", "Lalmonirhat", "Nilphamari", "Dinajpur", "Thakurgaon",
+    "Panchagarh", "Sherpur", "Jamalpur", "Tangail", "Kishoreganj", "Manikganj",
+    "Munshiganj", "Rajbari", "Madaripur", "Gopalganj", "Faridpur", "Shariatpur",
+    "Bhola", "Patuakhali", "Pirojpur", "Jhalokati", "Barguna"
+  ].sort();
 
   const parseTime = (timeStr) => {
     if (!timeStr) return 0;
@@ -55,13 +88,13 @@ export default function TripPage() {
     return parseInt(hours, 10) * 60 + parseInt(minutes, 10); // Return minutes from midnight
   };
 
-  const sortedTrips = getSortedTrips();
+  const processedTrips = getProcessedTrips();
 
-  // Pagination Logic (Applied on sortedTrips)
+  // Pagination Logic (Applied on processedTrips)
   const indexOfLastTrip = currentPage * ITEMS_PER_PAGE;
   const indexOfFirstTrip = indexOfLastTrip - ITEMS_PER_PAGE;
-  const paginatedTrips = sortedTrips.slice(indexOfFirstTrip, indexOfLastTrip);
-  const totalPages = Math.ceil(sortedTrips.length / ITEMS_PER_PAGE);
+  const paginatedTrips = processedTrips.slice(indexOfFirstTrip, indexOfLastTrip);
+  const totalPages = Math.ceil(processedTrips.length / ITEMS_PER_PAGE);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -144,27 +177,47 @@ export default function TripPage() {
           </h2>
 
           <div className="bg-white rounded-3xl shadow-lg p-8 grid md:grid-cols-4 gap-6 mb-14">
-            <input
-              type="text"
-              placeholder="From"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="border border-gray-300 rounded-xl px-4 py-3"
-            />
 
-            <input
-              type="text"
-              placeholder="To"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="border border-gray-300 rounded-xl px-4 py-3"
-            />
+            {/* From Input with Datalist */}
+            <div className="relative">
+              <input
+                list="from-cities"
+                type="text"
+                placeholder="From (e.g. Dhaka)"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black"
+              />
+              <datalist id="from-cities">
+                {BANGLADESH_CITIES.map(city => (
+                  <option key={`from-${city}`} value={city} />
+                ))}
+              </datalist>
+            </div>
+
+            {/* To Input with Datalist */}
+            <div className="relative">
+              <input
+                list="to-cities"
+                type="text"
+                placeholder="To (e.g. Chittagong)"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black"
+              />
+              <datalist id="to-cities">
+                {BANGLADESH_CITIES.map(city => (
+                  <option key={`to-${city}`} value={city} />
+                ))}
+              </datalist>
+            </div>
 
             <input
               type="date"
               value={date}
+              min={new Date().toISOString().split('T')[0]} // Prevents selecting past dates
               onChange={(e) => setDate(e.target.value)}
-              className="border border-gray-300 rounded-xl px-4 py-3"
+              className="border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black"
             />
 
             <button
@@ -175,9 +228,24 @@ export default function TripPage() {
             </button>
           </div>
 
-          {/* Sorting Controls */}
+          {/* Filter and Sorting Controls */}
           {trips.length > 0 && !loading && (
-            <div className="flex justify-end mb-6">
+            <div className="flex flex-wrap justify-end gap-4 mb-8">
+              <select
+                value={timeFilter}
+                onChange={(e) => {
+                  setTimeFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="border border-gray-300 rounded-lg px-4 py-2 bg-white text-gray-700 focus:outline-none focus:border-black"
+              >
+                <option value="all">Check Time: All</option>
+                <option value="morning">Morning (Before 12 PM)</option>
+                <option value="afternoon">Afternoon (12 PM - 6 PM)</option>
+                <option value="evening">Evening (6 PM - 12 AM)</option>
+                <option value="night">Late Night (After 12 AM)</option>
+              </select>
+
               <select
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value)}

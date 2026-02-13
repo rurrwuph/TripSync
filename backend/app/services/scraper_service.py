@@ -69,14 +69,17 @@ def scrape_shohoz(origin, destination, date):
             if price_val <= 0:
                 continue
 
-            # Estimate total seats based on bus type
+            # Estimate total seats based on bus type and availability
             bus_type = trip.get("bus_desc", "").lower()
+            avail = int(trip.get("noOfSeatsAvailable", 0))
+            
             if "sleeper" in bus_type or "double" in bus_type:
-               total_seats = 30
-            elif "ac" in bus_type and "hino" in bus_type:
-               total_seats = 40 
+               # Sleepers often have 30 seats (3 columns, 10 rows)
+               total_seats = max(30, avail + 2)
             else:
-               total_seats = 36 # Default
+               # Standard buses are usually 4 columns. Round up to multiple of 4.
+               raw_total = max(36, avail + 2)
+               total_seats = ((raw_total + 3) // 4) * 4
                
             parsed_trip = {
                 "operator": trip.get("company_name"),
