@@ -35,6 +35,7 @@ class Trip(Base):
     to_location = Column(String)
     departure_time = Column(DateTime)
     base_fare = Column(Float)
+    available_seats = Column(Integer, default=36) # Added to persist scraper/seed data
 
     bus = relationship("Bus", back_populates="trips")
     tickets = relationship("Ticket", back_populates="trip")

@@ -5,10 +5,10 @@ from textwrap import dedent
 from fastapi import FastAPI, HTTPException, Depends, status
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from groq import Groq
-from sqlalchemy import text
+from sqlalchemy import text, func
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import engine, Base
 import app.models.all_models as models
@@ -202,7 +202,7 @@ async def chat_endpoint(request: ChatRequest):
                     trips = trip_service.enrich_trips_with_availability(db, trips)
                     data = {"trips": trips}
                     if not sort_by:
-                        reply = f"Found {len(trips)} buses for you!"
+                        reply = f"Found {len(trips)} buses for you! You can now view seats and book."
                     
                     chat_history.append({"role": "system", "content": f"System: Found {len(trips)} buses."})
                 else:
@@ -226,14 +226,54 @@ class SearchRequest(BaseModel):
 @app.post("/api/search")
 async def search_trips(request: SearchRequest, db: Session = Depends(get_db)):
     try:
-        print(f"Searching for: {request.origin} -> {request.destination} on {request.date}")
-        trips = scrape_shohoz(request.origin, request.destination, request.date)
-        # Stability fix: Inject date into trip objects so they generate consistent IDs
-        for t in trips:
-            t['date'] = request.date
-        enriched_trips = trip_service.enrich_trips_with_availability(db, trips)
-        return {"trips": enriched_trips, "count": len(enriched_trips)}
+        print(f"Searching LOCAL DB for: {request.origin} -> {request.destination} on {request.date}")
+        
+        # 1. Search local database first
+        # We parse the date to match the DateTime column
+        try:
+            search_date = datetime.strptime(request.date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+        # Query trips that match origin, destination and departure date
+        # Note: departure_time is a DateTime, so we filter by date()
+        local_trips = db.query(models.Trip).filter(
+            func.lower(models.Trip.from_location) == request.origin.lower(),
+            func.lower(models.Trip.to_location) == request.destination.lower(),
+            func.date(models.Trip.departure_time) == search_date
+        ).all()
+
+        if local_trips:
+            # Map DB objects to the format expected by the frontend
+            formatted_trips = []
+            for t in local_trips:
+                formatted_trips.append({
+                    "id": t.id,
+                    "trip_id": t.id, # Compatibility
+                    "operator": t.bus.bus_number.split(" - ")[0] if t.bus else "Unknown",
+                    "type": t.bus.type if t.bus else "Standard",
+                    "from": t.from_location,
+                    "to": t.to_location,
+                    "route": t.route,
+                    "time": t.departure_time.strftime("%I:%M %p"),
+                    "departure_time": t.departure_time.strftime("%H:%M"), # Scraper style
+                    "arrival_time": (t.departure_time + timedelta(hours=6)).strftime("%H:%M"), # Estimate
+                    "price": t.base_fare,
+                    "date": t.departure_time.strftime("%Y-%m-%d"),
+                    "seats_available": t.available_seats,
+                    "total_seats": t.bus.total_seats if t.bus else 36
+                })
+            
+            # Use trip_service to enrich with availability logic
+            enriched_trips = trip_service.enrich_trips_with_availability(db, formatted_trips)
+            return {"trips": enriched_trips, "count": len(enriched_trips), "source": "local"}
+
+        # 2. Fallback or Empty
+        print("No local trips found. Scraper disabled per user request.")
+        return {"trips": [], "count": 0, "source": "local"}
+
     except Exception as e:
+        print(f"Search error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Include Routers

@@ -5,7 +5,7 @@ from datetime import datetime
 from app.api.deps import get_db
 from app.schemas import all_schemas as schemas
 import app.models.all_models as models
-from app.services.mail_service import mail_service
+# from app.services.mail_service import mail_service
 from app.services import trip_service
 
 router = APIRouter()
@@ -41,7 +41,8 @@ def book_ticket(booking: schemas.BookingRequest, db: Session = Depends(get_db)):
         # Check if seat already booked
         existing_ticket = db.query(models.Ticket).filter(
             models.Ticket.trip_id == trip.id,
-            models.Ticket.seat_number == seat
+            models.Ticket.seat_number == seat,
+            models.Ticket.status == "booked"
         ).first()
         
         if existing_ticket:
@@ -68,15 +69,15 @@ def book_ticket(booking: schemas.BookingRequest, db: Session = Depends(get_db)):
     for t in new_tickets:
         db.refresh(t)
         
-    # Send Confirmation Email (Mock)
-    try:
-        mail_service.send_booking_confirmation(
-            user_email=booking.user_email,
-            trip_details=booking.trip_details,
-            seats=booking.selected_seats
-        )
-    except Exception as e:
-        print(f"Failed to send confirmation email: {e}")
+    # Confirmation email now handled by frontend via EmailJS
+    # try:
+    #     mail_service.send_booking_confirmation(
+    #         user_email=booking.user_email,
+    #         trip_details=booking.trip_details,
+    #         seats=booking.selected_seats
+    #     )
+    # except Exception as e:
+    #     print(f"Failed to send confirmation email: {e}")
         
     return new_tickets
 

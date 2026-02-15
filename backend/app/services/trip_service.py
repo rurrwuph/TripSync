@@ -8,11 +8,31 @@ import app.models.all_models as models
 
 def parse_trip_datetime(date_str, time_str):
     try:
+        # Pre-process time_str (Shohoz sometimes has extra spaces or weird chars)
+        time_str = str(time_str).strip().upper()
+        
+        # If it's already a full datetime from scraper (unlikely but possible)
+        if " " in time_str and len(time_str) > 10:
+             try: return datetime.fromisoformat(time_str)
+             except: pass
+
         if date_str and time_str:
-             return datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %I:%M %p")
-        else:
-             return datetime.fromisoformat(date_str) if date_str else datetime.now()
-    except Exception:
+             # Try standard formats: "10:30 PM", "23:55:00", "23:55"
+             for fmt in ("%I:%M %p", "%H:%M:%S", "%H:%M", "%I:%M%p"):
+                 try:
+                     parsed_time = datetime.strptime(time_str, fmt).time()
+                     parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                     return datetime.combine(parsed_date, parsed_time)
+                 except ValueError:
+                     continue
+        
+        # Fallback to just the date if time fails
+        if date_str:
+            return datetime.strptime(date_str, "%Y-%m-%d")
+            
+        return datetime.now()
+    except Exception as e:
+        print(f"CRITICAL PARSE ERROR: date={date_str}, time={time_str} | {e}")
         return datetime.now()
 
 def get_all_possible_seats(total_seats: int):
@@ -44,10 +64,22 @@ def get_mock_booked_seats(trip_id: int, total_seats: int, real_booked: list, moc
 
 def get_or_create_trip(db: Session, trip_data: dict, commit: bool = True):
     """
-    Legacy function: Finds or creates a single trip/bus. 
-    Kept for backward compatibility with other modules like bookings.
-    Warning: Not efficient for bulk operations.
+    Finds or creates a single trip/bus. 
+    Prioritizes lookup by ID if provided in trip_data.
     """
+    # 0. Check by ID first (High Reliability)
+    trip_id = trip_data.get('id') or trip_data.get('trip_id')
+    if trip_id:
+        try:
+            # Handle string IDs if passed from JS
+            res_id = int(trip_id)
+            trip = db.query(models.Trip).filter(models.Trip.id == res_id).first()
+            if trip:
+                return trip
+        except (ValueError, TypeError):
+            pass
+
+    # 1. Fallback to lookup by bus + departure time
     operator = trip_data.get('operator') or trip_data.get('bus_name', 'Unknown')
     bus_type = trip_data.get('type') or trip_data.get('bus_type', 'Standard')
     total_seats = trip_data.get('total_seats', 36)

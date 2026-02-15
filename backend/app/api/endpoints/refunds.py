@@ -4,7 +4,7 @@ from typing import List
 from app.api.deps import get_db, require_admin
 from app.schemas.all_schemas import RefundCreate, RefundOut
 import app.models.all_models as models
-from app.services.mail_service import mail_service
+# from app.services.mail_service import mail_service
 
 router = APIRouter()
 
@@ -89,24 +89,24 @@ def update_refund_status(refund_id: int, status: str, db: Session = Depends(get_
             
     db.commit()
 
-    # Send Notification Email
-    try:
-        # Get User via ticket
-        t_id_to_check = None
-        if refund.ticket_ids:
-            t_id_to_check = int(refund.ticket_ids.split(",")[0])
-        elif refund.ticket_id:
-            t_id_to_check = refund.ticket_id
-            
-        if t_id_to_check:
-            ticket = db.query(models.Ticket).filter(models.Ticket.id == t_id_to_check).first()
-            if ticket and ticket.user:
-                mail_service.send_refund_status_update(
-                    user_email=ticket.user.email,
-                    status=status,
-                    seats=refund.seat_numbers or str(ticket.seat_number)
-                )
-    except Exception as e:
-        print(f"Failed to send refund notification email: {e}")
+    # Notification email logic to be moved to frontend if desired
+    # try:
+    #     # Get User via ticket
+    #     t_id_to_check = None
+    #     if refund.ticket_ids:
+    #         t_id_to_check = int(refund.ticket_ids.split(",")[0])
+    #     elif refund.ticket_id:
+    #         t_id_to_check = refund.ticket_id
+    #         
+    #     if t_id_to_check:
+    #         ticket = db.query(models.Ticket).filter(models.Ticket.id == t_id_to_check).first()
+    #         if ticket and ticket.user:
+    #             mail_service.send_refund_status_update(
+    #                 user_email=ticket.user.email,
+    #                 status=status,
+    #                 seats=refund.seat_numbers or str(ticket.seat_number)
+    #             )
+    # except Exception as e:
+    #     print(f"Failed to send refund notification email: {e}")
 
     return {"message": f"Refund status updated to {status}"}

@@ -63,16 +63,8 @@ export default function TripPage() {
   };
 
   const BANGLADESH_CITIES = [
-    "Dhaka", "Chittagong", "Cox's Bazar", "Sylhet", "Rajshahi", "Khulna", "Barisal",
-    "Rangpur", "Mymensingh", "Cumilla", "Gazipur", "Narayanganj", "Bogra", "Noakhali",
-    "Feni", "Brahmanbaria", "Chandpur", "Lakshmipur", "Rangamati", "Bandarban",
-    "Khagrachari", "Sunamganj", "Habiganj", "Moulvibazar", "Jashore", "Satkhira",
-    "Meherpur", "Kushtia", "Magura", "Narail", "Bagerhat", "Chuadanga", "Jhenaidah",
-    "Pabna", "Sirajganj", "Joypurhat", "Naogaon", "Natore", "Chapai Nawabganj",
-    "Kurigram", "Gaibandha", "Lalmonirhat", "Nilphamari", "Dinajpur", "Thakurgaon",
-    "Panchagarh", "Sherpur", "Jamalpur", "Tangail", "Kishoreganj", "Manikganj",
-    "Munshiganj", "Rajbari", "Madaripur", "Gopalganj", "Faridpur", "Shariatpur",
-    "Bhola", "Patuakhali", "Pirojpur", "Jhalokati", "Barguna"
+    "Dhaka", "Chittagong", "Cox's Bazar", "Sylhet", "Rajshahi",
+    "Khulna", "Barisal", "Rangpur", "Bogra", "Jashore"
   ].sort();
 
   const parseTime = (timeStr) => {

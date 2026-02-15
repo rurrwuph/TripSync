@@ -18,13 +18,14 @@ export const searchTrips = async (origin, destination, date) => {
         const data = await response.json();
 
         return data.trips.map(trip => ({
-            id: trip.trip_id,
-            from: origin,
-            to: destination,
-            time: formatTime(trip.departure_time),
-            date: formatDate(date),
+            id: trip.id || trip.trip_id,
+            from: trip.from || origin,
+            to: trip.to || destination,
+            time: trip.time || formatTime(trip.departure_time),
+            date: trip.date || formatDate(date),
             price: trip.price,
             seats: trip.seats_available,
+            available_seats: trip.available_seats || trip.seats_available,
             total_seats: trip.total_seats,
             operator: trip.operator,
             type: trip.type

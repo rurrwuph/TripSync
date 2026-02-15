@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
+import emailjs from '@emailjs/browser';
 
 const CheckoutPage = () => {
   const location = useLocation();
@@ -12,11 +13,55 @@ const CheckoutPage = () => {
   const [isBooking, setIsBooking] = useState(false);
 
   useEffect(() => {
+    // Initialize EmailJS
+    emailjs.init("I-4Q5UdEcc6xNPUYo");
+
     if (paymentSuccess && !bookingProcessed.current) {
+      console.log("Payment success detected. Triggering booking confirmation...");
       bookingProcessed.current = true;
       handleConfirmBooking();
     }
   }, [paymentSuccess]);
+
+  const sendEmailTicket = (bookingId, currentUser) => {
+    const SERVICE_ID = "service_dyzvgbf";
+    const PUBLIC_KEY = "I-4Q5UdEcc6xNPUYo";
+    // Using a placeholder template ID that user will likely replace
+    const TEMPLATE_ID = "template_ticket_email";
+
+    console.log("Preparing to send email to:", currentUser.email);
+
+    // Generate QR Code URL
+    const qrData = `TICKET|${bookingId}|${currentUser.phoneNumber || currentUser.email}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+
+    const templateParams = {
+      passenger_name: currentUser.fullname || currentUser.fullName || "Valued Customer",
+      user_email: currentUser.email,
+      email: currentUser.email, // Matching the {{email}} field in your dashboard
+      origin: trip.from || trip.from_location || "Unknown",
+      destination: trip.to || trip.to_location || "Unknown",
+      date: trip.date || (trip.departure_time ? new Date(trip.departure_time).toLocaleDateString() : "TBD"),
+      time: trip.time || (trip.departure_time ? new Date(trip.departure_time).toLocaleTimeString() : "TBD"),
+      seats: selectedSeats.join(', '),
+      total_fare: totalPrice,
+      ticket_id: String(bookingId).slice(-8).toUpperCase(),
+      qr_code: qrCodeUrl
+    };
+
+    console.log("Email Template Params:", templateParams);
+
+    emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY)
+      .then((res) => {
+        console.log("TICKET EMAIL SENT SUCCESSFULLY!", res);
+        alert("E-Ticket has been sent to your email!");
+      })
+      .catch((err) => {
+        console.error("FAILED TO SEND TICKET EMAIL:", err);
+        const errorDetail = err.text || err.message || JSON.stringify(err);
+        alert(`Email sending failed: ${errorDetail}\n\nPlease check your SERVICE_ID, TEMPLATE_ID, and PUBLIC_KEY in CheckoutPage.jsx.`);
+      });
+  };
 
   const [user, setUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -81,7 +126,14 @@ const CheckoutPage = () => {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        const mainBookingId = data[0]?.id || "TXN" + Date.now();
+
         setSuccessMessage(selectedSeats.join(", "));
+
+        // Trigger Email Ticket
+        sendEmailTicket(mainBookingId, currentUser);
+
         setTimeout(() => setSuccessMessage(""), 4000);
       } else {
         const errorData = await response.json();
