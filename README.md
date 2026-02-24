@@ -1,380 +1,400 @@
-# 🚌 TripSync — Modern Bus Travel Coordination Platform
+# 🚌 TripSync — Intelligent Bus Reservation and Transport Coordination Platform
 
-TripSync is a digital platform built to simplify and modernize the process of booking bus tickets.  
-The system connects passengers with transport operators through a unified and structured interface.
+TripSync is a modern web-based system created to improve the process of bus ticket reservations and travel management.  
+The platform connects passengers with transport operators through a single digital ecosystem designed for speed, clarity, and reliability.
 
-Traditional booking methods often involve manual coordination or fragmented online systems.  
-TripSync replaces those workflows with a centralized digital ecosystem where passengers can discover routes, select seats, and confirm bookings in a streamlined way.
+Traditional ticket booking systems often depend on manual counters or disconnected services.  
+TripSync replaces these outdated processes with a structured online environment where passengers can easily discover routes, select seats, confirm bookings, and receive electronic tickets.
 
-The platform emphasizes reliability, speed, and clarity.  
-Its goal is to provide a convenient travel booking experience while offering operators tools to efficiently manage their services.
+At the same time, transport operators gain access to management tools that help organize routes, monitor bookings, and analyze travel demand.
 
----
-
-# Project Purpose
-
-The purpose of TripSync is to create a reliable digital system that improves how bus travel is organized and accessed.
-
-The project focuses on several major improvements:
-
-Simplifying the ticket reservation process  
-Improving seat availability visibility  
-Providing structured operator management tools  
-Reducing manual booking dependencies  
-Enhancing travel planning convenience  
-
-By addressing these areas, the platform aims to transform traditional transport booking practices.
+The platform aims to build a reliable infrastructure that improves travel planning and operational coordination.
 
 ---
 
-# Platform Concept
+# Project Background
 
-TripSync operates as a bridge between passengers and bus service providers.
+The development of TripSync was motivated by several challenges in existing travel booking systems.
 
-Passengers use the platform to explore routes and reserve tickets, while operators use the system to manage trips and track booking activity.
+Common issues include:
 
-The platform provides a shared infrastructure where travel information is organized and accessible.
+Limited seat visibility for passengers  
+Manual booking processes at counters  
+Delayed confirmation of reservations  
+Fragmented communication between operators and travelers  
 
-Passengers gain easier booking access.  
-Operators gain improved operational control.
+TripSync addresses these limitations through automation and centralized management.
 
-This balanced ecosystem helps improve the overall travel experience.
+The platform introduces a unified system where travel data is organized and accessible.
 
 ---
 
-# User Interface Principles
+# Platform Objectives
 
-The interface design of TripSync is guided by several key usability principles.
+TripSync is designed with several key objectives.
 
-These principles help ensure that passengers can navigate the system easily.
+Simplify ticket booking for passengers  
+Provide operators with digital management tools  
+Improve seat allocation transparency  
+Reduce booking errors and conflicts  
+Enable scalable transportation infrastructure  
 
-Design goals include:
+These objectives shape the design and functionality of the system.
 
-Clarity of layout  
-Minimal interaction steps  
+---
+
+# System Concept
+
+TripSync functions as a coordination platform between travelers and bus service providers.
+
+Passengers use the platform to explore routes and purchase tickets.
+
+Transport operators use the system to publish trips and monitor reservations.
+
+The platform provides a shared digital environment where travel information is organized efficiently.
+
+Passengers benefit from convenience.  
+Operators benefit from operational visibility.
+
+---
+
+# Interface Philosophy
+
+TripSync prioritizes usability in its interface design.
+
+The goal is to ensure that passengers can complete bookings quickly without confusion.
+
+Important interface principles include:
+
+Clear navigation structure  
+Minimal interaction complexity  
 Fast loading components  
-Consistent navigation structure  
+Consistent visual hierarchy  
 
-These factors contribute to a smoother user experience.
+These principles contribute to a better user experience.
 
 ---
 
-# Passenger Booking Journey
+# Passenger Booking Process
 
-The passenger booking flow is designed to be intuitive and predictable.
+Passengers follow a structured booking journey.
 
-Typical steps include:
+The typical process includes:
 
 Searching for available routes  
-Reviewing available trips  
-Selecting preferred seats  
-Entering passenger details  
-Completing payment confirmation  
-Receiving digital ticket information  
+Reviewing trip options  
+Selecting seats visually  
+Providing passenger information  
+Confirming booking and payment  
+Receiving digital ticket confirmation  
 
-This workflow keeps the booking process straightforward.
+Each stage of the workflow is optimized for clarity.
 
 ---
 
-# Route Search Module
+# Route Discovery Engine
 
-TripSync includes a route discovery system that helps passengers locate available trips quickly.
+TripSync includes a route discovery system that allows passengers to find trips quickly.
 
-Passengers can refine their searches using filters such as:
+Passengers can filter results using several parameters.
+
+Examples include:
 
 Departure location  
-Arrival destination  
+Destination city  
 Travel date  
 Bus operator  
 Seat availability  
 
-These filters improve trip discovery and reduce unnecessary browsing.
+These filters help users identify relevant trips faster.
 
 ---
 
-# Trip Listings
+# Trip Information Display
 
-Trip results are displayed in an organized layout that provides essential travel information.
+Trip results are presented in a structured list.
 
-Each listing typically includes:
+Each listing includes key travel information such as:
 
 Operator name  
 Departure time  
-Arrival location  
-Available seats  
-Ticket price  
+Arrival destination  
+Seat availability  
+Ticket pricing  
 
-Passengers can compare trips before making a selection.
+Passengers can compare trips before choosing one.
 
 ---
 
-# Seat Visualization System
+# Seat Selection Interface
 
-TripSync provides an interactive seat selection system.
+TripSync provides a graphical seat selection interface.
 
-Passengers can view a graphical layout representing the interior of a bus.
+Passengers can view the interior layout of a bus and select seats interactively.
 
-Seat availability is visually displayed using different states:
+Seat states are displayed using visual indicators.
+
+Seat categories include:
 
 Available seats  
 Reserved seats  
 Selected seats  
 Unavailable seats  
 
-This visualization improves booking accuracy.
+This feature improves booking transparency.
 
 ---
 
-# Seat Allocation Logic
+# Seat Reservation Logic
 
-When a passenger selects a seat, the system temporarily reserves that seat during checkout.
+When a passenger selects a seat, the system temporarily reserves it during checkout.
 
-Once payment is confirmed, the seat becomes permanently assigned to the passenger.
+After payment confirmation, the seat becomes permanently assigned.
 
-This mechanism prevents seat duplication and booking conflicts.
-
----
-
-# Booking Confirmation
-
-After completing the booking process, passengers receive immediate confirmation.
-
-The system performs several actions:
-
-Verifies payment status  
-Assigns the seat to the passenger  
-Generates the ticket  
-Sends confirmation notifications  
-
-Passengers are notified instantly.
+This process prevents seat conflicts and duplicate bookings.
 
 ---
 
-# Digital Ticket System
+# Booking Confirmation Workflow
 
-TripSync generates electronic tickets automatically.
+Once payment is completed, the system performs several confirmation tasks.
 
-Digital tickets contain important travel details.
+These tasks include:
+
+Validating the transaction  
+Assigning the seat to the passenger  
+Generating the digital ticket  
+Sending confirmation notifications  
+
+Passengers receive confirmation immediately.
+
+---
+
+# Electronic Ticket Generation
+
+TripSync automatically generates electronic tickets.
+
+These tickets contain important travel details.
 
 Typical ticket data includes:
 
-Passenger identity  
+Passenger name  
 Seat number  
 Bus operator  
 Route information  
-Boarding time  
+Departure time  
 QR verification code  
 
-QR codes allow fast ticket validation.
+QR codes enable quick validation during boarding.
 
 ---
 
-# Notification Service
+# Notification System
 
-Passengers receive automated notifications related to their bookings.
+Passengers receive notifications during important booking events.
 
 Examples include:
 
-Booking confirmations  
+Booking confirmation alerts  
 Payment receipts  
-Trip reminders  
-Schedule updates  
+Trip reminder notifications  
+Schedule update messages  
 
-These notifications ensure that travelers stay informed.
-
----
-
-# Passenger Support Tools
-
-TripSync includes support tools that assist passengers during booking.
-
-A chatbot module provides automated responses to common questions.
-
-Passengers can receive help related to:
-
-Searching routes  
-Selecting seats  
-Understanding booking steps  
-General platform guidance  
-
-This assistance improves accessibility.
+Notifications help keep passengers informed.
 
 ---
 
-# Operator Management Interface
+# Passenger Assistance
 
-TripSync also provides a management interface for transport operators.
+TripSync includes an automated assistance module.
 
-Operators can control various operational aspects from a single dashboard.
+A chatbot system helps answer frequently asked questions.
 
-Available features include:
+Passengers can receive help with:
 
-Trip creation  
-Route scheduling  
-Seat management  
-Booking monitoring  
-Refund handling  
+Trip search guidance  
+Booking instructions  
+Navigation within the platform  
+General inquiries  
 
-These tools reduce operational complexity.
-
----
-
-# Fleet Management
-
-Operators can assign buses to routes and schedules.
-
-Fleet management allows operators to:
-
-Register buses  
-Update trip availability  
-Modify departure schedules  
-
-Changes can be applied instantly.
+This support system improves accessibility.
 
 ---
 
-# Booking Analytics Dashboard
+# Operator Control Panel
 
-TripSync provides data visualization tools for operators.
+TripSync provides operators with a centralized dashboard.
 
-Analytics dashboards display key booking metrics.
+Operators can manage services using this interface.
 
-Examples of available data include:
+Available functions include:
 
-Daily ticket sales  
-Seat occupancy percentages  
-Revenue trends  
-High-demand routes  
+Creating trips  
+Updating schedules  
+Managing seat allocations  
+Monitoring bookings  
+Processing refund requests  
 
-Operators can use this information to improve planning.
+The dashboard simplifies administrative tasks.
 
 ---
 
-# Platform Architecture
+# Fleet Scheduling System
 
-TripSync follows a modular architecture.
+Operators can organize their buses and schedules using TripSync.
 
-The system separates responsibilities across several layers.
+Fleet management tools allow operators to:
+
+Assign buses to routes  
+Modify departure times  
+Adjust trip availability  
+
+Scheduling changes are applied instantly.
+
+---
+
+# Operator Analytics Tools
+
+TripSync includes analytics dashboards that help operators monitor performance.
+
+Operators can analyze metrics such as:
+
+Daily booking counts  
+Seat occupancy rates  
+Revenue patterns  
+Popular routes  
+
+Analytics tools support better planning.
+
+---
+
+# Software Architecture
+
+TripSync follows a layered architecture.
+
+The system separates functionality into several layers.
 
 These layers include:
 
-Frontend interface layer  
-Backend application layer  
-Database storage layer  
+User interface layer  
+Application logic layer  
+Data storage layer  
 External communication layer  
 
-This separation improves maintainability.
+This modular structure improves scalability.
 
 ---
 
 # Frontend Technologies
 
-The frontend interface is built using modern web technologies.
+The frontend interface is developed using modern JavaScript frameworks.
 
 Technologies used include:
 
 React 19  
 Vite  
-Tailwind CSS 4  
+Tailwind CSS  
 Framer Motion  
 Lucide React  
 Recharts  
 
-These tools help create responsive and visually engaging interfaces.
+These tools support responsive design and dynamic interactions.
 
 ---
 
 # Backend Technologies
 
-The backend system processes application logic and data operations.
+The backend system handles data processing and business logic.
 
-The backend uses the following technologies:
+Backend technologies include:
 
 Python programming language  
 FastAPI framework  
 SQLAlchemy ORM  
 PostgreSQL database  
 
-FastAPI enables efficient API development.
+FastAPI provides high performance for API endpoints.
 
 ---
 
 # API Communication
 
-TripSync relies on REST APIs for communication between frontend and backend services.
+TripSync uses RESTful APIs to connect frontend and backend components.
 
-Common API operations include:
+Common API actions include:
 
-Retrieving available trips  
-Creating bookings  
+Retrieving trip information  
+Creating booking records  
 Updating seat allocations  
-Managing operator records  
+Managing operator data  
 
-All API interactions follow structured request and response formats.
+All API responses follow structured formats.
 
 ---
 
-# Database Design
+# Database Structure
 
-PostgreSQL serves as the primary database system.
+PostgreSQL is used as the primary database.
 
-The database stores travel and booking data.
+The database stores information related to several entities.
 
-Important entities include:
+Key entities include:
 
 Users  
 Operators  
 Trips  
 Bookings  
-Seats  
+Seat assignments  
 
 SQLAlchemy simplifies database interactions.
 
 ---
 
-# Supporting Infrastructure
+# Supporting Services
 
-Several supporting tools assist with communication and data handling.
+TripSync integrates additional services to support communication.
 
 Examples include:
 
-Axios for API communication  
-EmailJS for email delivery  
+Axios for API requests  
+EmailJS for sending email notifications  
 
-These services enable reliable interaction between components.
+These services connect system components.
 
 ---
 
 # Development Tools
 
-TripSync uses development tools that support collaboration and code quality.
+The project uses several tools to maintain code quality.
 
-Tools include:
+Examples include:
 
-Git for version control  
-ESLint for code style enforcement  
+Git version control system  
+ESLint code linting tool  
 
-These tools maintain consistency across the project.
+These tools help maintain a consistent codebase.
 
 ---
 
-# System Requirements
+# Local Development Requirements
 
-To run TripSync locally, the following software must be installed:
+To run TripSync locally, several dependencies must be installed.
 
-Node.js version 18 or later  
-Python version 3.10 or later  
+Required software includes:
+
+Node.js version 18 or higher  
+Python version 3.10 or higher  
 PostgreSQL database server  
 
-These tools support both frontend and backend execution.
+These dependencies allow both frontend and backend services to run.
 
 ---
 
-# Frontend Setup Steps
+# Frontend Setup Instructions
 
 Navigate to the main project directory.
 
-Install dependencies using:
+Install frontend dependencies:
 
 npm install
 
@@ -382,13 +402,13 @@ Start the development server:
 
 npm run dev
 
-The frontend will launch through the Vite development environment.
+The application will launch using the Vite development server.
 
 ---
 
-# Backend Setup Steps
+# Backend Setup Instructions
 
-Navigate to the backend folder.
+Navigate to the backend directory.
 
 Create a virtual environment:
 
@@ -398,33 +418,33 @@ Activate the environment:
 
 source .venv/bin/activate
 
-Install required packages:
+Install dependencies:
 
 pip install -r requirements.txt
 
-Run the FastAPI server:
+Start the FastAPI server:
 
 uvicorn main:app --reload
 
-The backend API will run locally.
+The backend API will start locally.
 
 ---
 
-# Sample Data Generation
+# Development Data Setup
 
-Developers can populate the database with sample trip data.
+Developers can generate sample trip data for testing.
 
 Example command:
 
 python seed_trips.py
 
-This helps simulate real booking scenarios during development.
+This script populates the database with sample records.
 
 ---
 
-# Project Directory Structure
+# Project Directory Layout
 
-TripSync follows a modular folder structure.
+TripSync follows a modular directory structure.
 
 TripSync/
 src/
@@ -444,120 +464,120 @@ public/
 README.md
 LICENSE
 
-This structure separates application layers.
+This structure separates frontend and backend responsibilities.
 
 ---
 
-# Frontend Components
+# Frontend Component Design
 
-The frontend application contains several reusable UI components.
+The frontend is built using reusable UI components.
 
 Examples include:
 
 Navigation header  
 Trip search panel  
-Seat selection interface  
+Seat selection grid  
 Booking confirmation page  
 Operator information display  
 
-Reusable components simplify development.
+Reusable components improve maintainability.
 
 ---
 
-# Backend Service Modules
+# Backend Module Organization
 
-The backend includes modules responsible for specific system functions.
+Backend modules handle specific services.
 
 Examples include:
 
-Trip management services  
-Booking processing services  
-User authentication services  
-Operator management services  
+Trip management module  
+Booking processing module  
+User authentication module  
+Operator management module  
 
-These modules organize backend logic.
+Each module focuses on a particular domain.
 
 ---
 
-# Performance Strategy
+# Performance Considerations
 
-TripSync includes optimizations to maintain responsive performance.
+TripSync includes strategies to maintain performance.
 
-Strategies include:
+Examples include:
 
 Efficient API design  
 Optimized database queries  
-Frontend component lazy loading  
-Reduced redundant requests  
+Lazy loading frontend components  
+Reduced network overhead  
 
-These improvements help maintain speed.
+These improvements ensure responsive interactions.
 
 ---
 
-# Security Strategy
+# Security Measures
 
-Security is implemented at several layers within the system.
+Security is implemented across multiple layers.
 
-Security measures include:
+Important security practices include:
 
 Input validation  
 API authentication  
 Encrypted communication  
 Secure payment handling  
 
-These practices protect user data.
+These measures help protect user data.
 
 ---
 
-# Platform Expansion Potential
+# Future Development Plans
 
-TripSync can be expanded with additional capabilities in the future.
+TripSync may evolve with additional features.
 
-Potential improvements include:
+Possible future improvements include:
 
 Mobile applications  
-Real-time vehicle tracking  
+Real-time bus tracking  
 Integrated payment gateways  
-Passenger loyalty programs  
-Dynamic ticket pricing systems  
+Passenger loyalty systems  
+Dynamic ticket pricing  
 
-These additions could further improve the platform.
+These enhancements could expand the platform.
 
 ---
 
-# Contribution Guidelines
+# Contribution Process
 
 Developers are encouraged to contribute improvements.
 
-Common contributions include:
+Typical contributions include:
 
 Bug fixes  
-Feature enhancements  
-Code refactoring  
+Feature additions  
+Performance improvements  
 Documentation updates  
 
-All contributions should follow established coding practices.
+All contributions should follow project guidelines.
 
 ---
 
-# License Information
+# License
 
 TripSync is distributed under the ISC License.
 
-This license allows modification, distribution, and commercial use.
+The license allows modification, redistribution, and commercial use.
 
 ---
 
-# Final Overview
+# Project Conclusion
 
-TripSync demonstrates how modern web technologies can improve transportation infrastructure.
+TripSync demonstrates how modern web technologies can improve transportation systems.
 
-By combining responsive interfaces with scalable backend services, the platform creates a unified system for bus travel management.
+By combining a responsive interface with scalable backend infrastructure, the platform provides a comprehensive environment for bus travel management.
 
-Passengers receive a convenient booking experience, while operators gain tools for efficient service management.
+Passengers gain a convenient booking experience, while operators gain tools for managing services effectively.
 
-TripSync represents a step toward smarter and more connected transportation systems.
+TripSync represents a step toward smarter digital transportation systems.
 
 ---
 
-Developed with dedication by the TripSync development team.
+Developed by the TripSync project contributors.
