@@ -12,6 +12,8 @@ def create_trip(trip: TripCreate, db: Session = Depends(get_db)):
     db_trip = models.Trip(
         bus_id=trip.bus_id,
         route=trip.route,
+        from_location=trip.from_location,
+        to_location=trip.to_location,
         departure_time=trip.departure_time,
         base_fare=trip.base_fare
     )

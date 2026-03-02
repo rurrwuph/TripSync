@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from app.api.deps import get_db, require_admin
-from app.schemas.all_schemas import RefundCreate, RefundOut
+from app.api.deps import get_db, require_admin, get_current_user
+from app.schemas.all_schemas import RefundCreate, RefundOut, PartialRefundRequest
 import app.models.all_models as models
+from app.services import booking_service
 # from app.services.mail_service import mail_service
 
 router = APIRouter()
 
 @router.post("/", response_model=RefundOut)
-def request_refund(refund: RefundCreate, db: Session = Depends(get_db)):
+def request_refund(refund: RefundCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     # Convert lists to comma-separated strings for storage
     t_ids_str = ",".join(map(str, refund.ticket_ids)) if refund.ticket_ids else None
     seats_str = ",".join(refund.seat_numbers) if refund.seat_numbers else None
@@ -53,16 +54,31 @@ def request_refund(refund: RefundCreate, db: Session = Depends(get_db)):
         status="pending"
     )
     
-    # Update all affected tickets to 'cancelled' status
+    # Update all affected tickets to 'RELEASED' status (making them available)
     if refund.ticket_ids:
-        db.query(models.Ticket).filter(models.Ticket.id.in_(refund.ticket_ids)).update({"status": "cancelled"}, synchronize_session=False)
+        db.query(models.Ticket).filter(models.Ticket.id.in_(refund.ticket_ids)).update({"status": "RELEASED"}, synchronize_session=False)
     elif refund.ticket_id:
-        db.query(models.Ticket).filter(models.Ticket.id == refund.ticket_id).update({"status": "cancelled"}, synchronize_session=False)
+        db.query(models.Ticket).filter(models.Ticket.id == refund.ticket_id).update({"status": "RELEASED"}, synchronize_session=False)
     
     db.add(db_refund)
     db.commit()
     db.refresh(db_refund)
     return db_refund
+
+@router.post("/partial", response_model=RefundOut)
+def partial_refund(request: PartialRefundRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """
+    Endpoint for partial cancellation.
+    Immediate seat release and time-based refund processing.
+    """
+    # Use service to handle transactional logic
+    refund_record = booking_service.process_partial_refund(
+        db=db,
+        booking_id=request.booking_id,
+        ticket_ids=request.ticket_ids,
+        cause=request.cause
+    )
+    return refund_record
 
 @router.get("/", response_model=List[RefundOut])
 def list_refunds(db: Session = Depends(get_db), current_admin: models.User = Depends(require_admin)):
