@@ -22,15 +22,15 @@ def parse_trip_datetime(date_str, time_str):
                  try:
                      parsed_time = datetime.strptime(time_str, fmt).time()
                      parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-                     return datetime.combine(parsed_date, parsed_time)
+                     return datetime.combine(parsed_date, parsed_time).replace(second=0, microsecond=0)
                  except ValueError:
                      continue
         
         # Fallback to just the date if time fails
         if date_str:
-            return datetime.strptime(date_str, "%Y-%m-%d")
+            return datetime.strptime(date_str, "%Y-%m-%d").replace(second=0, microsecond=0)
             
-        return datetime.now()
+        return datetime.now().replace(second=0, microsecond=0)
     except Exception as e:
         print(f"CRITICAL PARSE ERROR: date={date_str}, time={time_str} | {e}")
         return datetime.now()
@@ -45,19 +45,15 @@ def get_all_possible_seats(total_seats: int):
                 all_seats.append(f"{seat_letters[c]}{r}")
     return all_seats
 
-def get_mock_booked_seats(trip_id: int, total_seats: int, real_booked: list, mock_count: int):
+def get_mock_booked_seats(trip_id: int, total_seats: int, mock_count: int):
     """
-    Generates deterministic mock bookings using trip_id as seed.
+    Generates stable deterministic mock bookings using trip_id as seed.
+    Shuffle the entire pool once so increasing mock_count keeps existing seats.
     """
     rnd = random.Random(trip_id)
     all_possible = get_all_possible_seats(total_seats)
-    
-    available_pool = [s for s in all_possible if s not in real_booked]
-    if not available_pool:
-        return []
-        
-    mock_booked = rnd.sample(available_pool, min(mock_count, len(available_pool)))
-    return mock_booked
+    rnd.shuffle(all_possible)
+    return all_possible[:mock_count]
 
 
 # --- Core Service Functions ---
@@ -117,6 +113,15 @@ def get_or_create_trip(db: Session, trip_data: dict, commit: bool = True):
         models.Trip.departure_time == departure_dt
     ).first()
 
+    # Fallthrough: Match by date if exact time fails (Crucial for seed stability)
+    if not trip:
+        trip = db.query(models.Trip).filter(
+            models.Trip.bus_id == bus.id if (bus and bus.id) else False,
+            func.date(models.Trip.departure_time) == departure_dt.date()
+        ).first()
+        if trip:
+             logger.info(f"Reusing existing trip {trip.id} found on date {departure_dt.date()}")
+
     if not trip:
         trip = models.Trip(
             bus_id=bus.id if (bus and bus.id) else None,
@@ -143,33 +148,48 @@ def get_seat_overlay(db: Session, trip_details: dict):
     db.refresh(trip)
     
     total_cap = trip.bus.total_seats if (trip.bus and trip.bus.total_seats) else 36
-    # Robust Lookup: Check for both possible field names from search
-    scraper_avail = int(trip_details.get('available_seats') or trip_details.get('seats_available') or 36)
+    # Priority: frontend available_seats -> frontend seats_available -> DB available_seats -> default
+    scraper_avail = trip_details.get('available_seats')
+    if scraper_avail is None:
+        scraper_avail = trip_details.get('seats_available')
+    if scraper_avail is None:
+        scraper_avail = trip.available_seats
     
-    # shohoz_booked_count represents the total external bookings
-    shohoz_booked_count = max(0, total_cap - scraper_avail)
-    if shohoz_booked_count == 0:
+    try:
+        scraper_avail = int(scraper_avail)
+    except (TypeError, ValueError):
+        scraper_avail = 36 # Fallback if everything fails
+        
+    # How many were marked as booked in the search result?
+    # search_result_available = total_cap - shohoz_booked - real_booked
+    # So shohoz_booked = total_cap - search_result_available - real_booked
+    
+    # First, get real local bookings
+    real_booked_objs = db.query(models.Ticket.seat_number).filter(
+        models.Ticket.trip_id == trip.id,
+        models.Ticket.status.in_(["BOOKED", "HELD"])
+    ).all()
+    real_booked = [s[0] for s in real_booked_objs]
+    real_booked_count = len(real_booked)
+    
+    # Calculate how many "external/mock" seats we need to maintain consistency
+    # with the available count shown on the search page.
+    shohoz_booked_count = max(0, total_cap - scraper_avail - real_booked_count)
+    
+    # Stability Fallback: If everything looks 100% empty, force some variety
+    if total_cap == scraper_avail and real_booked_count == 0:
         rnd = random.Random(trip.id)
         shohoz_booked_count = rnd.randint(2, 4)
         
-    real_booked_objs = db.query(models.Ticket.seat_number).filter(
-        models.Ticket.trip_id == trip.id,
-        models.Ticket.status == "booked"
-    ).all()
-    real_booked = [s[0] for s in real_booked_objs]
+    # Generate mock seats independently (additive)
+    mock_booked = get_mock_booked_seats(trip.id, total_cap, shohoz_booked_count)
     
-    # We want additive logic: Mock (Shohoz) + Real (Local)
-    # So if Shohoz says 4 booked, we freeze 4 mock seats.
-    # If user books 1 real seat, total booked = 5.
-    effective_mock_count = max(0, shohoz_booked_count)
+    # Combined list: prioritizing real bookings (set handles overlaps)
+    all_booked = list(set(real_booked + mock_booked))
     
-    # Ensure we don't return more mock seats than physically possible
-    # (Total Cap - Real Booked) is the max room left for mocks
-    max_possible_mocks = max(0, total_cap - len(real_booked))
-    effective_mock_count = min(effective_mock_count, max_possible_mocks)
+    print(f"DEBUG Overlay: Trip {trip.id} | Total: {total_cap} | Avail: {scraper_avail} | Real: {real_booked_count} | Mock Required: {shohoz_booked_count} | Final Booked: {len(all_booked)}")
     
-    mock_booked = get_mock_booked_seats(trip.id, total_cap, real_booked, effective_mock_count)
-    return list(set(real_booked + mock_booked))
+    return all_booked
 
 
 def enrich_trips_with_availability(db: Session, trips: list):
@@ -300,7 +320,7 @@ def enrich_trips_with_availability(db: Session, trips: list):
             func.count(models.Ticket.id)
         ).filter(
             models.Ticket.trip_id.in_(all_trip_ids),
-            models.Ticket.status == "booked"
+            models.Ticket.status.in_(["BOOKED", "HELD"]) # Updated
         ).group_by(models.Ticket.trip_id).all()
         
         for trip_id, count in rows:
@@ -317,25 +337,42 @@ def enrich_trips_with_availability(db: Session, trips: list):
         total_capacity = bus_map[trip_obj.bus.bus_number].total_seats if trip_obj.bus else (trip_obj.bus.total_seats if trip_obj.bus else 36)
         # Use scraper capacity if available in mapping
         
-        scraper_avail = int(t_data.get('seats_available', 0))
+        # If we have an existing trip, its 'available_seats' column 
+        # stores the REMAINING capacity including previous local bookings.
+        # We need to extract just the shohoz/external part to be consistent.
+        # Logic: Trip.AvailableSeats = Total - ShohozBooked - RealBooked (at time of last sync)
+        # So ShohozBooked = Total - Trip.AvailableSeats - RealBooked (at time of last sync)
+        # But for simplification, we'll assume Trip.AvailableSeats from DB is the base external availability if scraper_avail is missing.
         
-        # Base occupancy
+        scraper_avail = t_data.get('seats_available')
+        if scraper_avail is None:
+            scraper_avail = trip_obj.available_seats or 36
+        
+        try:
+            scraper_avail = int(scraper_avail)
+        except (TypeError, ValueError):
+            scraper_avail = 36
+
+        # Step A: Estimate Shohoz Bookings
+        # If scraper_avail is 36, we do random 2-4
         shohoz_booked = max(0, total_capacity - scraper_avail)
         if shohoz_booked == 0:
             rnd = random.Random(trip_obj.id)
             shohoz_booked = rnd.randint(2, 4)
             
+        # Step B: Get Current Real Bookings
         real_booked_count = booking_counts.get(trip_obj.id, 0)
         
-        # Additive Logic: Available = Total - (Shohoz + Real)
-        available = max(0, total_capacity - shohoz_booked - real_booked_count)
+        # Step C: Final Additive Available Count
+        # available = Total - Shohoz (Fixed) - Real (Live)
+        final_available = max(0, total_capacity - shohoz_booked - real_booked_count)
         
         t_data.update({
             "id": trip_obj.id,
-            "available_seats": available,
-            "seats_available": available,
+            "available_seats": final_available,
+            "seats_available": final_available,
             "total_seats": total_capacity,
-            "seats": available
+            "seats": final_available
         })
 
     db.commit()

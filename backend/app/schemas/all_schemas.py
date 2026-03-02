@@ -6,13 +6,20 @@ from datetime import datetime
 class UserCreate(BaseModel):
     full_name: str
     email: EmailStr
+    phone: Optional[str] = None
     password: str
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
 
 class UserOut(BaseModel):
     id: int
     full_name: Optional[str] = None
     email: EmailStr
+    phone: Optional[str] = None
     role: str
+    reward_points: Optional[int] = 0
     created_at: Optional[datetime] = None
     
     class Config:
@@ -61,9 +68,26 @@ class TicketCreate(TicketBase):
 class TicketOut(TicketBase):
     id: int
     user_id: int
+    booking_id: Optional[int] = None
     status: str
     trip: Optional[TripOut] = None
     refund_status: Optional[str] = None # New field
+    class Config:
+        from_attributes = True
+
+# --- Booking Schemas ---
+class BookingOut(BaseModel):
+    id: int
+    user_id: int
+    trip_id: int
+    status: str
+    total_price: float
+    expires_at: Optional[datetime] = None
+    payment_timestamp: Optional[datetime] = None
+    created_at: datetime
+    tickets: List[TicketOut] = []
+    trip: Optional[TripOut] = None
+
     class Config:
         from_attributes = True
 
@@ -71,10 +95,16 @@ class TicketOut(TicketBase):
 class RefundCreate(BaseModel):
     ticket_id: Optional[int] = None # For backward compatibility
     ticket_ids: Optional[List[int]] = None # New format
+    booking_id: Optional[int] = None # New
     seat_numbers: Optional[List[str]] = None # New format
     user_email: str
     amount: float
     cause: str
+
+class PartialRefundRequest(BaseModel):
+    booking_id: int
+    ticket_ids: List[int]
+    cause: Optional[str] = "Partial Cancellation"
 
 class RefundOut(BaseModel):
     id: int
@@ -94,6 +124,7 @@ class BookingRequest(BaseModel):
     trip_details: dict  # Contains scraped trip info
     selected_seats: List[str]
     total_price: float
+    use_points_discount: Optional[bool] = False  # Apply 2% discount using 10k points
 
 class AvailabilityRequest(BaseModel):
     trip_details: dict
