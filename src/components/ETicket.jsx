@@ -81,9 +81,35 @@ const ETicket = forwardRef(({ trip, passengerInfo }, ref) => {
                 </div>
             </div>
 
+            {/* Refund Policy */}
+            <div className="mt-6 pt-4 border-t border-dashed border-gray-200">
+                <h4 className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">Refund & Cancellation Policy</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[9px] text-gray-500">
+                    <div className="bg-green-50 p-2 rounded-lg text-center">
+                        <div className="font-black text-green-700">90%</div>
+                        <div>&gt; 48h before</div>
+                    </div>
+                    <div className="bg-yellow-50 p-2 rounded-lg text-center">
+                        <div className="font-black text-yellow-700">75%</div>
+                        <div>24-48h before</div>
+                    </div>
+                    <div className="bg-orange-50 p-2 rounded-lg text-center">
+                        <div className="font-black text-orange-700">50%</div>
+                        <div>12-24h before</div>
+                    </div>
+                    <div className="bg-red-50 p-2 rounded-lg text-center">
+                        <div className="font-black text-red-700">0%</div>
+                        <div>&lt; 12h before</div>
+                    </div>
+                </div>
+            </div>
+
             {/* Anti-fraud Footer */}
             <div className="mt-8 pt-4 border-t border-gray-100 text-[9px] text-gray-400 uppercase tracking-widest flex justify-between">
-                <span>Issued by TripSync Systems</span>
+                <div>
+                    <div>Issued by TripSync Systems</div>
+                    <div className="mt-1 text-gray-500 font-bold">Date of Issue: {trip.date_of_issue ? new Date(trip.date_of_issue).toLocaleString() : "N/A"}</div>
+                </div>
                 <span>Valid for boarding with ID proof</span>
             </div>
         </div>
