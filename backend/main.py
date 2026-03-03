@@ -18,7 +18,7 @@ from app.api.deps import get_db
 from sqlalchemy.orm import Session
 
 # Import Routers
-from app.api.endpoints import users, buses, trips, tickets, refunds, admin
+from app.api.endpoints import users, buses, trips, tickets, refunds, admin, auth
 from app.services.user_sync import sync_users_from_json
 
 # Robust env loading
@@ -66,7 +66,7 @@ class ChatResponse(BaseModel):
 
 SYSTEM_PROMPT_TEMPLATE = """
 You are a smart travel assistant for 'TripSync', a bus ticketing platform in Bangladesh.
-Your goal is to help users navigate the app and find bus trips.
+Your goal is to help users navigate the app, find bus trips, manage bookings, and understand refund policies.
 
 **Current Date & Time:** {current_time}
 
@@ -81,7 +81,31 @@ Available Routes:
 - /: Home
 - /explore: Trip Search Page
 - /login: Login Page
+- /register: Registration Page
 - /contact: Contact Page
+- /profile: My Bookings & Tickets
+- /admin: Admin Dashboard (admin users only)
+
+**Refund Policy (IMPORTANT - share when asked):**
+- More than 48 hours before departure: 90% refund
+- 24-48 hours before departure: 75% refund
+- 12-24 hours before departure: 50% refund
+- Less than 12 hours before departure: 0% refund (no refund)
+- Less than 6 hours before departure: Cancellation rejected
+
+**Booking Flow (share when asked):**
+1. Search for a trip (origin, destination, date)
+2. Select seats on the seat map
+3. Choose "Pay with bKash" to confirm immediately, or "Hold Seats" to reserve for 2 minutes
+4. Held seats expire after 2 minutes if not paid
+5. After payment, an e-ticket is generated and emailed
+
+**How to Cancel / Get Refund:**
+1. Go to Profile page (/profile)
+2. Find the booking and click "Cancel"
+3. Select individual seats to cancel (partial cancellation supported)
+4. Refund amount is auto-calculated based on the policy above
+5. Remaining seats stay active in the booking
 
 Rules:
 1. **Slot Filling (Crucial)**:
@@ -96,9 +120,10 @@ Rules:
    - Return the extracted params in the `params` field.
    - Format date as YYYY-MM-DD.
 
-3. If the user wants to go to a specific page (e.g. login), use "navigate:/route".
-4. Be helpful and concise.
-5. Output ONLY JSON.
+3. If the user wants to go to a specific page (e.g. login, profile, admin), use "navigate:/route".
+4. If the user asks about refunds, cancellation, or their bookings, explain the process and suggest navigating to /profile.
+5. Be helpful and concise.
+6. Output ONLY JSON.
 """
 
 chat_history = []
@@ -277,6 +302,7 @@ async def search_trips(request: SearchRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Include Routers
+app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(buses.router, prefix="/buses", tags=["Buses"])
 app.include_router(trips.router, prefix="/trips", tags=["Trips"])
