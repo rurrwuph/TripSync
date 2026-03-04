@@ -42,8 +42,8 @@ const Header = () => {
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled
-          ? "bg-white/80 backdrop-blur-xl border-b border-gray-100 shadow-sm py-3"
-          : "bg-white/0 py-5"
+        ? "bg-white/80 backdrop-blur-xl border-b border-gray-100 shadow-sm py-3"
+        : "bg-white/0 py-5"
         }`}
     >
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
@@ -65,8 +65,8 @@ const Header = () => {
               key={link.path}
               to={link.path}
               className={`px-5 py-2 rounded-full text-sm font-bold transition-all duration-300 ${isActive(link.path)
-                  ? "bg-white text-black shadow-sm"
-                  : "text-gray-500 hover:text-black hover:bg-white/50"
+                ? "bg-white text-black shadow-sm"
+                : "text-gray-500 hover:text-black hover:bg-white/50"
                 }`}
             >
               {link.name}
@@ -104,7 +104,7 @@ const Header = () => {
                   className="flex items-center gap-3 p-1.5 pr-4 bg-white hover:bg-gray-50 border border-gray-200 rounded-2xl transition-all shadow-sm active:scale-95"
                 >
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 text-white flex items-center justify-center text-sm font-black shadow-inner">
-                    {user.fullname?.[0]?.toUpperCase() || "U"}
+                    {user.full_name?.[0]?.toUpperCase() || "U"}
                   </div>
                   <div className="flex flex-col items-start leading-none">
                     <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Account</span>
@@ -123,7 +123,7 @@ const Header = () => {
                     >
                       <div className="px-5 py-4 border-b border-gray-50 mb-1.5">
                         <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest mb-1">Authenticated</p>
-                        <p className="text-sm font-black text-gray-900 truncate">{user.fullname || 'Traveler'}</p>
+                        <p className="text-sm font-black text-gray-900 truncate">{user.full_name || 'Traveler'}</p>
                         <p className="text-[11px] text-gray-500 font-medium truncate">{user.email || ''}</p>
                       </div>
 
@@ -206,8 +206,8 @@ const Header = () => {
                   to={link.path}
                   onClick={() => setMobileMenu(false)}
                   className={`block py-4 px-6 rounded-2xl text-xl font-black transition-all ${isActive(link.path)
-                      ? "bg-black text-white shadow-xl shadow-gray-200"
-                      : "text-gray-900 active:bg-gray-100"
+                    ? "bg-black text-white shadow-xl shadow-gray-200"
+                    : "text-gray-900 active:bg-gray-100"
                     }`}
                 >
                   {link.name}

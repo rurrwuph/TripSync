@@ -8,7 +8,7 @@ const ProtectedRoute = ({ children, roleRequired }) => {
         return <Navigate to="/login" replace />;
     }
 
-    if (roleRequired && currentUser.role !== roleRequired) {
+    if (roleRequired && currentUser.role !== roleRequired && currentUser.role !== 'manager') {
         return <div className="p-10 text-center text-red-500 font-bold">Access Denied: You do not have permission to view this page.</div>;
     }
 
