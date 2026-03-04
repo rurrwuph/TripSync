@@ -67,7 +67,7 @@ export default function RegisterPage() {
     const cleanedEmail = email.trim().toLowerCase();
 
     try {
-      const response = await fetch("http://localhost:8000/users/register", {
+      const response = await fetch("http://localhost:8000/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -75,19 +75,18 @@ export default function RegisterPage() {
         body: JSON.stringify({
           full_name: fullname.trim(),
           email: cleanedEmail,
+          phone: phone.trim(),
           password: password,
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        // Success popup
+        localStorage.setItem("accessToken", data.access_token);
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
+
         setPopupType("success");
         setShowPopup(true);
-
-        // Optionally save basic info to local storage for session management if needed
-        // But ideally, login should handle this.
-        localStorage.setItem("currentUser", JSON.stringify(data));
 
       } else {
         const errorData = await response.json();

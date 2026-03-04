@@ -3,7 +3,8 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, Info, ShieldCheck, Wifi, Coffee, Wind, MapPin, Clock, ArrowLeft } from "lucide-react";
+import { ChevronRight, Info, ShieldCheck, Wifi, Coffee, Wind, MapPin, Clock, ArrowLeft, Calendar } from "lucide-react";
+import { apiRequest } from "../services/api";
 
 export default function SeatPage() {
     const location = useLocation();
@@ -48,9 +49,8 @@ export default function SeatPage() {
         const fetchAvailableSeats = async () => {
             setIsLoadingSeats(true);
             try {
-                const response = await fetch("http://localhost:8000/tickets/seat-overlay", {
+                const response = await apiRequest("/tickets/seat-overlay", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ trip_details: trip })
                 });
                 if (response.ok) {
@@ -109,7 +109,7 @@ export default function SeatPage() {
                     ${isSelected
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-100 ring-4 ring-blue-50'
                         : isBooked
-                            ? 'bg-gray-100 text-gray-300 cursor-not-allowed border-none shadow-none'
+                            ? 'bg-gray-200 text-gray-500 cursor-not-allowed border-none shadow-none'
                             : 'bg-white border border-gray-100 hover:border-blue-200 hover:shadow-md'
                     }`}
             >

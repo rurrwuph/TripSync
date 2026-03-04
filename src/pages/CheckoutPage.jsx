@@ -2,15 +2,49 @@ import React, { useState, useEffect, useRef } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 import emailjs from '@emailjs/browser';
+import { apiRequest } from "../services/api";
+
+// =====================================================
+// EMAIL TOGGLE: Set to true to enable automatic emails
+// Set to false for testing/development
+// =====================================================
+const SEND_EMAIL_ENABLED = true;
 
 const CheckoutPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { trip, selectedSeats, totalPrice, paymentSuccess } = location.state || {};
+  const {
+    trip: incomingTrip,
+    selectedSeats: incomingSeats,
+    totalPrice: incomingPrice,
+    paymentSuccess,
+    booking: incomingBooking
+  } = location.state || {};
+
+  // Derive trip, selectedSeats, and totalPrice if they're missing but incomingBooking exists
+  const trip = incomingTrip || (incomingBooking ? {
+    from: incomingBooking.from,
+    to: incomingBooking.to,
+    time: incomingBooking.time,
+    date: incomingBooking.date,
+    type: incomingBooking.bus_name,
+    price: incomingBooking.totalPrice / (incomingBooking.seats?.length || 1)
+  } : null);
+
+  const selectedSeats = incomingSeats || incomingBooking?.seats;
+  const totalPrice = incomingPrice || incomingBooking?.totalPrice;
+
   const [successMessage, setSuccessMessage] = useState("");
   const bookingProcessed = useRef(false);
 
   const [isBooking, setIsBooking] = useState(false);
+  const [booking, setBooking] = useState(incomingBooking || null);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [popup, setPopup] = useState({ show: false, type: 'success', message: '' });
+  const showPopup = (type, message) => {
+    setPopup({ show: true, type, message });
+    setTimeout(() => setPopup({ show: false, type: '', message: '' }), 4000);
+  };
 
   useEffect(() => {
     // Initialize EmailJS
@@ -19,9 +53,29 @@ const CheckoutPage = () => {
     if (paymentSuccess && !bookingProcessed.current) {
       console.log("Payment success detected. Triggering booking confirmation...");
       bookingProcessed.current = true;
-      handleConfirmBooking();
+      // If we already have a PENDING booking, confirm it. Else, book it normally.
+      if (booking && booking.id) {
+        handleConfirmBookingStatus(booking.id);
+      } else {
+        handleCreatePendingBooking(true); // create and confirm
+      }
     }
-  }, [paymentSuccess]);
+  }, [paymentSuccess, booking]);
+
+  useEffect(() => {
+    if (timeLeft === null || timeLeft <= 0) return;
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  const formatTime = (seconds) => {
+    if (seconds === null) return "";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const sendEmailTicket = (bookingId, currentUser) => {
     const SERVICE_ID = "service_dyzvgbf";
@@ -36,7 +90,7 @@ const CheckoutPage = () => {
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
 
     const templateParams = {
-      passenger_name: currentUser.fullname || currentUser.fullName || "Valued Customer",
+      passenger_name: currentUser.full_name || currentUser.fullName || "Valued Customer",
       user_email: currentUser.email,
       email: currentUser.email, // Matching the {{email}} field in your dashboard
       origin: trip.from || trip.from_location || "Unknown",
@@ -54,12 +108,11 @@ const CheckoutPage = () => {
     emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY)
       .then((res) => {
         console.log("TICKET EMAIL SENT SUCCESSFULLY!", res);
-        alert("E-Ticket has been sent to your email!");
+        showPopup('success', 'E-Ticket has been sent to your email!');
       })
       .catch((err) => {
         console.error("FAILED TO SEND TICKET EMAIL:", err);
-        const errorDetail = err.text || err.message || JSON.stringify(err);
-        alert(`Email sending failed: ${errorDetail}\n\nPlease check your SERVICE_ID, TEMPLATE_ID, and PUBLIC_KEY in CheckoutPage.jsx.`);
+        showPopup('error', 'Email sending failed. You can still view your e-ticket in Profile.');
       });
   };
 
@@ -69,7 +122,15 @@ const CheckoutPage = () => {
   useEffect(() => {
     const loggedInUser = JSON.parse(localStorage.getItem("currentUser"));
     if (loggedInUser) setUser(loggedInUser);
-  }, []);
+
+    // Initialize timer if booking exists from state
+    if (incomingBooking && incomingBooking.expiresAt && timeLeft === null) {
+      const expiresAt = new Date(incomingBooking.expiresAt).getTime();
+      const now = new Date().getTime();
+      const diff = Math.floor((expiresAt - now) / 1000);
+      setTimeLeft(diff > 0 ? diff : 0);
+    }
+  }, [incomingBooking, timeLeft]);
 
   // --- Handlers for Header Dropdown ---
   const handleLogout = () => {
@@ -101,25 +162,22 @@ const CheckoutPage = () => {
   }
 
 
-  const handleConfirmBooking = async () => {
+  const handleCreatePendingBooking = async (confirmImmediately = false) => {
     // Check if user is logged in
     const currentUser = JSON.parse(localStorage.getItem("currentUser"));
     if (!currentUser || !currentUser.email) {
-      alert("Please login to book tickets.");
+      showPopup('error', 'Please login to book tickets.');
       navigate("/login");
       return;
     }
 
     try {
       setIsBooking(true);
-      const response = await fetch("http://localhost:8000/tickets/book", {
+      const response = await apiRequest("/tickets/book", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           user_email: currentUser.email,
-          trip_details: trip, // Ensure 'trip' object has all necessary fields including 'date'
+          trip_details: trip,
           selected_seats: selectedSeats,
           total_price: totalPrice
         }),
@@ -127,22 +185,59 @@ const CheckoutPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        const mainBookingId = data[0]?.id || "TXN" + Date.now();
+        setBooking(data);
 
+        // Start Timer
+        const expiresAt = new Date(data.expires_at).getTime();
+        const now = new Date().getTime();
+        const diff = Math.floor((expiresAt - now) / 1000);
+        setTimeLeft(diff > 0 ? diff : 0);
+
+        if (confirmImmediately) {
+          handleConfirmBookingStatus(data.id);
+        } else {
+          showPopup('success', 'Seats are now HELD for 2 minutes. Complete payment to confirm.');
+        }
+      } else {
+        const errorData = await response.json();
+        showPopup('error', `Booking failed: ${errorData.detail}`);
+      }
+    } catch (error) {
+      console.error("Booking error:", error);
+      showPopup('error', 'Network error. Could not book tickets.');
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
+  const handleConfirmBookingStatus = async (bookingId) => {
+    try {
+      setIsBooking(true);
+      const response = await apiRequest(`/tickets/confirm/${bookingId}`, {
+        method: "POST"
+      });
+
+      if (response.ok) {
+        const data = await response.json();
         setSuccessMessage(selectedSeats.join(", "));
+        setTimeLeft(null); // Stop timer
 
-        // Trigger Email Ticket
-        sendEmailTicket(mainBookingId, currentUser);
+        // Trigger Email Ticket (respects SEND_EMAIL_ENABLED flag)
+        const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+        if (SEND_EMAIL_ENABLED) {
+          sendEmailTicket(data.id, currentUser);
+        } else {
+          console.log('Email sending disabled. Toggle SEND_EMAIL_ENABLED in CheckoutPage.jsx to enable.');
+        }
 
         setTimeout(() => setSuccessMessage(""), 4000);
       } else {
         const errorData = await response.json();
-        alert(`Booking failed: ${errorData.detail}`);
+        showPopup('error', `Confirmation failed: ${errorData.detail}`);
       }
-
     } catch (error) {
-      console.error("Booking error:", error);
-      alert("Network error. Could not book tickets.");
+      console.error("Confirmation error:", error);
+      showPopup('error', 'Payment confirmation failed.');
     } finally {
       setIsBooking(false);
     }
@@ -150,6 +245,12 @@ const CheckoutPage = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-900 relative overflow-x-hidden">
+      {/* Popup Toast */}
+      {popup.show && (
+        <div className={`fixed top-6 right-6 z-[60] px-6 py-4 rounded-2xl shadow-2xl text-sm font-bold ${popup.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`} style={{ animation: 'slideIn 0.3s ease-out forwards' }}>
+          {popup.type === 'success' ? '✓' : '✕'} {popup.message}
+        </div>
+      )}
       {/* --- START: SUCCESS POPUP --- */}
       {successMessage && (
         <div className="fixed top-24 left-0 right-0 z-50 flex justify-center px-4">
@@ -246,20 +347,43 @@ const CheckoutPage = () => {
         </section>
 
         {/* Total Price & Actions */}
-        <section className="bg-white rounded-3xl shadow-2xl p-8 flex flex-col gap-6 border border-gray-200 hover:shadow-xl">
+        <section className="bg-white rounded-3xl shadow-2xl p-8 flex flex-col gap-6 border border-gray-200 hover:shadow-xl relative overflow-hidden">
+          {timeLeft !== null && timeLeft > 0 && (
+            <div className="absolute top-0 right-0 bg-red-100 text-red-600 px-4 py-1 rounded-bl-xl font-bold animate-pulse">
+              Hold expires in: {formatTime(timeLeft)}
+            </div>
+          )}
+          {timeLeft === 0 && (
+            <div className="absolute top-0 inset-x-0 bg-red-600 text-white py-1 text-center font-bold">
+              HOLD EXPIRED - RELEASED
+            </div>
+          )}
+
           <p className="text-xl font-semibold">Total Price: ৳{totalPrice}</p>
           <div className="flex flex-col md:flex-row gap-4">
 
             {/* --- CONDITIONAL BUTTON LOGIC --- */}
             {user ? (
-              <button
-                onClick={() => navigate('/payment/bkash', { state: { trip, selectedSeats, totalPrice } })}
-                disabled={isBooking || paymentSuccess}
-                className={`flex-1 py-3 md:px-8 bg-[#E2136E] text-white font-bold rounded-xl transform transition-all shadow-lg ${(isBooking || paymentSuccess) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#c2105e] hover:scale-105'
-                  }`}
-              >
-                {isBooking ? 'Processing Booking...' : paymentSuccess ? 'Payment Successful' : 'Pay with bKash'}
-              </button>
+              <>
+                <button
+                  onClick={() => navigate('/payment/bkash', { state: { trip, selectedSeats, totalPrice, booking } })}
+                  disabled={isBooking || paymentSuccess || (timeLeft === 0)}
+                  className={`flex-1 py-3 md:px-8 bg-[#E2136E] text-white font-bold rounded-xl transform transition-all shadow-lg ${(isBooking || paymentSuccess || timeLeft === 0) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#c2105e] hover:scale-105'
+                    }`}
+                >
+                  {isBooking ? 'Processing...' : paymentSuccess ? 'Payment Successful' : 'Pay with bKash'}
+                </button>
+
+                {!booking && !paymentSuccess && (
+                  <button
+                    onClick={() => handleCreatePendingBooking(false)}
+                    disabled={isBooking}
+                    className="flex-1 py-3 md:px-8 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 hover:scale-105 transform transition-all shadow-lg shadow-blue-200"
+                  >
+                    Pay Later (Hold Seats)
+                  </button>
+                )}
+              </>
             ) : (
               <button
                 onClick={() => navigate('/login')}

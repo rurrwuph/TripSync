@@ -9,68 +9,39 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
-    setTimeout(() => {
-      // 1. Prepare inputs (normalize email to lowercase for consistency)
-      const inputEmail = email.trim().toLowerCase();
-      const inputPassword = password;
+    try {
+      const response = await fetch("http://localhost:8000/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-      // ---------------------------------------------------------
-      // CHECK 1: JSON ADMINS
-      // ---------------------------------------------------------
-      const jsonAdmins = accounts.admins || [];
-      const foundAdmin = jsonAdmins.find(
-        (a) => a.email.toLowerCase() === inputEmail && a.password === inputPassword
-      );
+      if (response.ok) {
+        const data = await response.json();
+        // Store JWT and User Info
+        localStorage.setItem("accessToken", data.access_token);
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
 
-      if (foundAdmin) {
-        localStorage.setItem('currentUser', JSON.stringify({ ...foundAdmin, role: 'admin' }));
-        navigate("/admin");
-        return;
+        if (data.user.role === "admin" || data.user.role === "manager") {
+          navigate("/admin");
+        } else {
+          navigate("/profile");
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || "Invalid email or password");
       }
-
-      // ---------------------------------------------------------
-      // CHECK 2: JSON USERS
-      // ---------------------------------------------------------
-      const jsonUsers = accounts.users || [];
-      const foundJsonUser = jsonUsers.find(
-        (u) => u.email.toLowerCase() === inputEmail && u.password === inputPassword
-      );
-
-      if (foundJsonUser) {
-        localStorage.setItem('currentUser', JSON.stringify({ ...foundJsonUser, role: 'user' }));
-        navigate("/profile");
-        return;
-      }
-
-      // ---------------------------------------------------------
-      // CHECK 3: LOCAL STORAGE USERS (Registered via App)
-      // ---------------------------------------------------------
-      const localUsers = JSON.parse(localStorage.getItem("users") || "[]");
-      const foundLocalUser = localUsers.find(
-        (u) => (u.email || "").toLowerCase() === inputEmail && u.password === inputPassword
-      );
-
-      if (foundLocalUser) {
-        // The register page already saves the 'role' inside the user object,
-        // but we default to 'user' just in case.
-        localStorage.setItem('currentUser', JSON.stringify({ role: 'user', ...foundLocalUser }));
-        navigate("/profile");
-        return;
-      }
-
-      // ---------------------------------------------------------
-      // NO MATCH FOUND
-      // ---------------------------------------------------------
-      console.log('Login failed for:', inputEmail);
-      setError("Invalid email or password");
+    } catch (err) {
+      console.error("Login bug:", err);
+      setError("Network error. Please try again.");
+    } finally {
       setLoading(false);
-
-    }, 500); // Simulated network delay
+    }
   };
 
   return (

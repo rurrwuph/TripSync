@@ -3,7 +3,7 @@ import HomePage from './pages/HomePage'
 import Chatbot from './components/Chatbot'
 import TripPage from './pages/TripPage'
 import SeatPage from './pages/SeatPage'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import AboutPage from './pages/AboutPage'
@@ -16,6 +16,9 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { TripProvider } from './context/TripContext'
 
 const App = () => {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
   return (
     <TripProvider>
       <div>
@@ -37,7 +40,7 @@ const App = () => {
           } />
         </Routes>
 
-        <Chatbot />
+        {!isAdminRoute && <Chatbot />}
       </div>
     </TripProvider>
   )

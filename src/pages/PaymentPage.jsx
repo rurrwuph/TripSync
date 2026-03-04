@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const PaymentPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { trip, selectedSeats, totalPrice } = location.state || {};
+    const { trip, selectedSeats, totalPrice, booking } = location.state || {};
 
     const [step, setStep] = useState(1); // 1: Phone, 2: OTP, 3: PIN
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -12,6 +12,12 @@ const PaymentPage = () => {
     const [pin, setPin] = useState('');
     const [loading, setLoading] = useState(false);
     const [timer, setTimer] = useState(60);
+    const [popup, setPopup] = useState({ show: false, message: '' });
+
+    const showPopup = (message) => {
+        setPopup({ show: true, message });
+        setTimeout(() => setPopup({ show: false, message: '' }), 3500);
+    };
 
     useEffect(() => {
         let interval = null;
@@ -21,7 +27,7 @@ const PaymentPage = () => {
             }, 1000);
         } else if (timer === 0) {
             // Redirect back when timer hits 0
-            alert("Session expired. Please try again.");
+            showPopup('Session expired. Please try again.');
             setStep(1);
             setTimer(60); // Reset timer for next attempt
             setOtp('');   // Clear OTP field
@@ -40,20 +46,20 @@ const PaymentPage = () => {
                 setStep(2);
             }, 1000);
         } else {
-            alert("Invalid Phone Number");
+            showPopup('Invalid Phone Number. Please enter an 11-digit number.');
         }
     };
 
     const handleOtpSubmit = (e) => {
         e.preventDefault();
-        if (otp === '1234') {
+        if (otp === '4848') {
             setLoading(true);
             setTimeout(() => {
                 setLoading(false);
                 setStep(3);
             }, 1000);
         } else {
-            alert("Invalid OTP (Try 1234)");
+            showPopup('Invalid OTP. Please try again.');
         }
     };
 
@@ -62,7 +68,7 @@ const PaymentPage = () => {
         setLoading(true);
         setTimeout(() => {
             navigate('/checkout', {
-                state: { trip, selectedSeats, totalPrice, paymentSuccess: true }
+                state: { trip, selectedSeats, totalPrice, paymentSuccess: true, booking }
             });
         }, 2000);
     };
@@ -71,6 +77,21 @@ const PaymentPage = () => {
 
     return (
         <div className="min-h-screen bg-whitesmoke flex items-center justify-center p-4">
+            {/* Toast Popup */}
+            {popup.show && (
+                <div
+                    style={{ animation: 'slideIn 0.3s ease-out forwards' }}
+                    className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] px-6 py-4 rounded-2xl shadow-2xl text-sm font-bold bg-red-600 text-white"
+                >
+                    ⚠️ {popup.message}
+                </div>
+            )}
+            <style>{`
+                @keyframes slideIn {
+                    from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+                    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+                }
+            `}</style>
             <div className="bg-white rounded-[10px] w-full max-w-sm shadow-2xl overflow-hidden relative border border-gray-300">
 
                 {/* bKash Header - Now White */}

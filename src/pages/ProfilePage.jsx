@@ -4,6 +4,49 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useReactToPrint } from "react-to-print";
 import ETicket from "../components/ETicket";
+import { apiRequest } from "../services/api";
+
+const PendingTimer = ({ expiresAt, onExpire }) => {
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const expiry = new Date(expiresAt).getTime();
+      const difference = expiry - now;
+      return Math.max(0, Math.floor(difference / 1000));
+    };
+
+    setTimeLeft(calculateTimeLeft());
+    const timer = setInterval(() => {
+      const remaining = calculateTimeLeft();
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setTimeLeft(0);
+        if (onExpire) {
+          // Use a small delay to avoid race conditions with backend
+          setTimeout(() => onExpire(), 500);
+        }
+      } else {
+        setTimeLeft(remaining);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [expiresAt, onExpire]);
+
+  if (timeLeft <= 0) return <span className="text-red-600 font-bold text-xs uppercase">Expired</span>;
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+
+  return (
+    <div className="flex items-center gap-1 text-green-600 font-mono text-xs font-bold bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+      <span className="animate-pulse">●</span>
+      Pay in {minutes}:{seconds.toString().padStart(2, '0')}
+    </div>
+  );
+};
 
 const initialUserData = {
   fullName: 'Loading...',
@@ -15,10 +58,26 @@ const initialUserData = {
 const ProfilePage = () => {
   const [userData, setUserData] = useState(initialUserData);
   const [bookings, setBookings] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSeatsForCancel, setSelectedSeatsForCancel] = useState([]);
   const [cancelCause, setCancelCause] = useState('Change of plans');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [popup, setPopup] = useState({ show: false, type: 'success', message: '' });
+
+  // Profile editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Reward points state
+  const [rewardPoints, setRewardPoints] = useState(0);
+
+  const showPopup = (type, message) => {
+    setPopup({ show: true, type, message });
+    setTimeout(() => setPopup({ show: false, type: '', message: '' }), 3500);
+  };
   const navigate = useNavigate();
 
   // Printing Logic States & Refs
@@ -46,56 +105,59 @@ const ProfilePage = () => {
       try {
         const user = JSON.parse(loggedInUser);
         setUserData({
-          fullName: user.fullname || 'TripSync User',
+          fullName: user.full_name || 'TripSync User',
           email: user.email,
           phoneNumber: user.phone || 'Not provided',
           accountType: user.role === 'admin' ? 'Administrator Account' : 'Passenger Account',
         });
 
-        const response = await fetch(`http://localhost:8000/tickets/user/${user.email}`);
+        // Fetch fresh user profile (reward points, etc.)
+        const profileRes = await apiRequest('/users/me');
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          setRewardPoints(profile.reward_points || 0);
+          setUserData(prev => ({
+            ...prev,
+            fullName: profile.full_name || prev.fullName,
+            phoneNumber: profile.phone || prev.phoneNumber,
+          }));
+        }
+
+        const response = await apiRequest(`/tickets/user/${user.email}`);
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json(); // Now returns list of Bookings
 
-          // Grouping individual seat tickets by Trip ID
-          const groupedData = data.reduce((acc, ticket) => {
-            const tripId = ticket.trip_id;
-            const trip = ticket.trip || {};
+          const processedBookings = data.map(booking => {
+            const trip = booking.trip || {};
+            const dateObj = new Date(trip.departure_time);
+            const [fromCity, toCity] = (trip.route || "Unknown - Unknown").split("-").map(s => s.trim());
 
-            if (!acc[tripId]) {
-              const dateObj = new Date(trip.departure_time);
-              const [fromCity, toCity] = (trip.route || "Unknown - Unknown").split("-").map(s => s.trim());
-
-              acc[tripId] = {
-                id: tripId,
-                from: fromCity,
-                to: toCity,
-                date: dateObj.toLocaleDateString(),
-                time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                seats: [],
-                totalPrice: 0,
-                bookedAt: trip.departure_time,
-                bus_name: trip.bus_name || "Green Line AC",
-                tickets: []
-              };
-            }
-
-            acc[tripId].seats.push(ticket.seat_number);
-            acc[tripId].totalPrice += trip.base_fare;
-            acc[tripId].tickets.push({
-              id: ticket.id,
-              seat: ticket.seat_number,
-              amount: trip.base_fare,
-              status: ticket.status,
-              refund_status: ticket.refund_status
-            });
-            return acc;
-          }, {});
-
-          const sortedBookings = Object.values(groupedData).sort((a, b) => {
-            return new Date(b.bookedAt) - new Date(a.bookedAt);
+            return {
+              id: booking.id,
+              status: booking.status,
+              from: fromCity,
+              to: toCity,
+              date: dateObj.toLocaleDateString(),
+              time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              totalPrice: booking.total_price,
+              bookedAt: booking.created_at,
+              departureTime: trip.departure_time,
+              bus_name: (trip.bus?.bus_number || "TripSync Bus").split(" - ")[0],
+              seats: booking.tickets.map(t => t.seat_number),
+              expiresAt: booking.expires_at,
+              isExpired: booking.status === 'PENDING_PAYMENT' && new Date(booking.expires_at) < new Date(),
+              tickets: booking.tickets.map(t => ({
+                id: t.id,
+                seat: t.seat_number,
+                status: t.status,
+                refund_status: t.refund_status,
+                expires_at: booking.expires_at,
+                payment_timestamp: booking.payment_timestamp
+              }))
+            };
           });
 
-          setBookings(sortedBookings);
+          setBookings(processedBookings);
         }
       } catch (error) {
         console.error("Error loading profile data:", error);
@@ -105,52 +167,80 @@ const ProfilePage = () => {
     fetchProfileData();
   }, [navigate]);
 
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      const res = await apiRequest('/users/me', {
+        method: 'PUT',
+        body: JSON.stringify({ full_name: editName, phone: editPhone })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        // Persist fresh data to localStorage
+        const stored = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const merged = { ...stored, full_name: updated.full_name, phone: updated.phone };
+        localStorage.setItem('currentUser', JSON.stringify(merged));
+        setUserData(prev => ({
+          ...prev,
+          fullName: updated.full_name || prev.fullName,
+          phoneNumber: updated.phone || prev.phoneNumber,
+        }));
+        setIsEditing(false);
+        showPopup('success', 'Profile updated successfully!');
+      } else {
+        const err = await res.json();
+        showPopup('error', err.detail || 'Failed to update profile.');
+      }
+    } catch (e) {
+      showPopup('error', 'Network error. Could not save profile.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleCancelClick = (booking) => {
     setSelectedBooking(booking);
+    setSelectedSeatsForCancel([]); // Reset selection
     setIsModalOpen(true);
   };
 
+  const toggleSeatSelection = (ticketId) => {
+    setSelectedSeatsForCancel(prev =>
+      prev.includes(ticketId) ? prev.filter(id => id !== ticketId) : [...prev, ticketId]
+    );
+  };
+
   const submitCancellation = async () => {
-    if (!selectedBooking) return;
+    if (!selectedBooking || selectedSeatsForCancel.length === 0) {
+      showPopup('error', 'Please select at least one seat to cancel.');
+      return;
+    }
     setIsSubmitting(true);
 
     try {
-      const ticketIds = selectedBooking.tickets.map(t => t.id);
-      const seatNumbers = selectedBooking.tickets.map(t => t.seat);
-
-      const response = await fetch('http://localhost:8000/refunds/', {
+      const response = await apiRequest('/refunds/partial', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ticket_ids: ticketIds,
-          seat_numbers: seatNumbers,
-          user_email: userData.email,
-          amount: selectedBooking.totalPrice,
-          cause: cancelCause,
-          status: 'pending'
+          booking_id: selectedBooking.id,
+          ticket_ids: selectedSeatsForCancel,
+          cause: cancelCause
         })
       });
 
       if (response.ok) {
-        setBookings(prev => prev.map(b =>
-          b.id === selectedBooking.id
-            ? {
-              ...b,
-              tickets: b.tickets.map(t => ({
-                ...t,
-                status: 'cancelled',
-                refund_status: 'pending'
-              }))
-            }
-            : b
-        ));
+        const refundData = await response.json();
+        showPopup('success', `Cancellation processed! Refund: ৳${refundData.amount} (${refundData.status})`);
         setIsModalOpen(false);
         setSelectedBooking(null);
+        // Refresh after short delay to let popup show
+        setTimeout(() => window.location.reload(), 2000);
       } else {
-        alert("Failed to cancel tickets.");
+        const error = await response.json();
+        showPopup('error', `Failed to cancel: ${error.detail}`);
       }
     } catch (error) {
       console.error("Cancellation error:", error);
+      showPopup('error', 'Network error during cancellation.');
     } finally {
       setIsSubmitting(false);
     }
@@ -165,7 +255,8 @@ const ProfilePage = () => {
       price: booking.totalPrice,
       bus_name: booking.bus_name,
       id: booking.id,
-      seats: booking.seats
+      seats: booking.tickets.filter(t => t.status === 'BOOKED' || t.status === 'HELD').map(t => t.seat),
+      date_of_issue: booking.tickets[0]?.payment_timestamp || booking.bookedAt
     };
 
     setTicketToPrint(ticketData);
@@ -176,15 +267,7 @@ const ProfilePage = () => {
   const isFutureTrip = (bookedAt) => new Date(bookedAt) > new Date();
 
   const getBookingStatus = (booking) => {
-    const refundStatuses = booking.tickets.map(t => t.refund_status).filter(Boolean);
-    if (refundStatuses.length > 0) {
-      const status = refundStatuses[0];
-      if (status === 'pending') return 'CANCELLATION PENDING';
-      if (status === 'approved') return 'REFUNDED';
-      if (status === 'rejected') return 'REJECTED';
-    }
-    if (booking.tickets.some(t => t.status === 'cancelled')) return 'CANCELLED';
-    return 'CONFIRMED';
+    return booking.status;
   };
 
   return (
@@ -192,13 +275,50 @@ const ProfilePage = () => {
       <Header />
 
       <main className="flex-grow py-12 px-6">
+        {/* Popup Toast */}
+        {popup.show && (
+          <div className={`fixed top-6 right-6 z-[60] px-6 py-4 rounded-2xl shadow-2xl text-sm font-bold ${popup.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`} style={{ animation: 'slideIn 0.3s ease-out forwards' }}>
+            {popup.type === 'success' ? '✓' : '✕'} {popup.message}
+          </div>
+        )}
+
         {/* Cancellation Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-float-up">
-              <h3 className="text-2xl font-bold mb-4">Cancel Ticket</h3>
-              <p className="text-gray-600 mb-6">Why are you cancelling this booking?</p>
+              <h3 className="text-2xl font-bold mb-4">Partial Cancellation</h3>
 
+              <div className="bg-red-50 p-4 rounded-2xl mb-6 border border-red-100">
+                <h4 className="text-red-800 font-bold text-sm mb-2 uppercase tracking-wider">Refund Policy</h4>
+                <ul className="text-xs text-red-700 space-y-1">
+                  <li>• &gt; 48h before departure: 90% Refund</li>
+                  <li>• 24-48h before departure: 75% Refund</li>
+                  <li>• 12-24h before departure: 50% Refund</li>
+                  <li>• &lt; 12h before departure: No Refund (0%)</li>
+                  <li>• &lt; 6h before departure: Cancellation strictly rejected</li>
+                </ul>
+              </div>
+
+              <p className="text-gray-600 mb-4">Select seats to cancel:</p>
+
+              <div className="space-y-2 mb-6 max-h-40 overflow-y-auto p-2 bg-gray-50 rounded-xl">
+                {selectedBooking.tickets.filter(t => t.status === 'BOOKED').map(t => (
+                  <label key={t.id} className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded-lg cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 accent-red-600"
+                      checked={selectedSeatsForCancel.includes(t.id)}
+                      onChange={() => toggleSeatSelection(t.id)}
+                    />
+                    <span className="font-bold">Seat {t.seat}</span>
+                  </label>
+                ))}
+                {selectedBooking.tickets.filter(t => t.status === 'BOOKED').length === 0 && (
+                  <p className="text-sm text-center text-gray-400 py-4">No seats available for cancellation.</p>
+                )}
+              </div>
+
+              <p className="text-gray-600 mb-2 text-sm">Reason for cancellation:</p>
               <select
                 value={cancelCause}
                 onChange={(e) => setCancelCause(e.target.value)}
@@ -214,8 +334,8 @@ const ProfilePage = () => {
                 <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold text-gray-700">Back</button>
                 <button
                   onClick={submitCancellation}
-                  disabled={isSubmitting}
-                  className="flex-1 py-4 bg-black text-white rounded-2xl font-bold"
+                  disabled={isSubmitting || selectedSeatsForCancel.length === 0}
+                  className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold disabled:opacity-50"
                 >
                   {isSubmitting ? "Processing..." : "Confirm Cancel"}
                 </button>
@@ -226,23 +346,114 @@ const ProfilePage = () => {
 
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8">
           {/* Profile Section */}
-          <div className="md:col-span-4 lg:col-span-3">
+          <div className="md:col-span-4 lg:col-span-3 space-y-4">
             <div className="bg-white rounded-3xl shadow-sm p-8 text-center border border-gray-100">
               <div className="w-24 h-24 mx-auto rounded-full bg-black text-white flex items-center justify-center text-3xl font-bold mb-4">
                 {getAvatarInitial(userData.fullName)}
               </div>
-              <h2 className="text-xl font-bold">{userData.fullName}</h2>
-              <p className="text-sm text-gray-500 mb-6">{userData.accountType}</p>
-              <div className="space-y-4 text-left">
-                <div className="p-3 bg-gray-50 rounded-xl">
-                  <p className="text-xs text-gray-400 font-semibold uppercase">Email</p>
-                  <p className="text-sm font-medium truncate">{userData.email}</p>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-xl">
-                  <p className="text-xs text-gray-400 font-semibold uppercase">Phone</p>
-                  <p className="text-sm font-medium">{userData.phoneNumber}</p>
-                </div>
+
+              {!isEditing ? (
+                <>
+                  <h2 className="text-xl font-bold">{userData.fullName}</h2>
+                  <p className="text-sm text-gray-500 mb-6">{userData.accountType}</p>
+                  <div className="space-y-4 text-left">
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      <p className="text-xs text-gray-400 font-semibold uppercase">Email</p>
+                      <p className="text-sm font-medium truncate">{userData.email}</p>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      <p className="text-xs text-gray-400 font-semibold uppercase">Phone</p>
+                      <p className="text-sm font-medium">{userData.phoneNumber}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setIsEditing(true); setEditName(userData.fullName === 'Loading...' ? '' : userData.fullName); setEditPhone(userData.phoneNumber === 'Not provided' ? '' : userData.phoneNumber); }}
+                    className="mt-6 w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition text-sm"
+                  >
+                    ✏️ Edit Profile
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-bold mb-4">Edit Profile</h2>
+                  <div className="space-y-4 text-left">
+                    <div>
+                      <label className="text-xs text-gray-400 font-semibold uppercase block mb-1">Full Name</label>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-blue-500 text-sm"
+                        placeholder="Your full name"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 font-semibold uppercase block mb-1">Phone Number</label>
+                      <input
+                        type="tel"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-blue-500 text-sm"
+                        placeholder="01XXXXXXXXX"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 font-semibold uppercase block mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={userData.email}
+                        disabled
+                        className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-400 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Email cannot be changed</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={isSaving}
+                      className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition text-sm disabled:opacity-50"
+                    >
+                      {isSaving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Reward Points Card */}
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl shadow-lg p-6 text-white">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider opacity-80">Reward Points</h3>
+                <span className="text-2xl">🏆</span>
               </div>
+              <p className="text-3xl font-black mb-1">{rewardPoints.toLocaleString()}</p>
+              <p className="text-xs opacity-70 mb-4">1,000 pts earned per seat booked</p>
+
+              {/* Progress bar to 10,000 */}
+              <div className="bg-white/20 rounded-full h-2.5 mb-2 overflow-hidden">
+                <div
+                  className="bg-white rounded-full h-2.5 transition-all duration-500"
+                  style={{ width: `${Math.min(100, (rewardPoints / 10000) * 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs opacity-70">
+                <span>{rewardPoints.toLocaleString()} / 10,000</span>
+                <span>{rewardPoints >= 10000 ? '✅ Eligible!' : `${(10000 - rewardPoints).toLocaleString()} to go`}</span>
+              </div>
+
+              {rewardPoints >= 10000 && (
+                <div className="mt-4 bg-white/10 rounded-xl p-3 border border-white/20">
+                  <p className="text-xs font-bold">🎉 You qualify for a 2% discount!</p>
+                  <p className="text-xs opacity-70 mt-1">Apply it on your next booking checkout.</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -258,12 +469,13 @@ const ProfilePage = () => {
               <div className="space-y-4">
                 {bookings.map((booking) => {
                   const statusLabel = getBookingStatus(booking);
-                  const isFuture = isFutureTrip(booking.bookedAt);
-                  const canCancel = isFuture && statusLabel === 'CONFIRMED';
+                  const isFuture = new Date(booking.departureTime) > new Date();
+                  const canCancel = isFuture && (statusLabel === 'CONFIRMED' || statusLabel === 'PARTIALLY_CANCELLED');
 
                   let badgeColor = 'bg-green-50 text-green-700 border-green-100';
-                  if (statusLabel.includes('PENDING')) badgeColor = 'bg-yellow-50 text-yellow-700 border-yellow-100';
-                  if (statusLabel === 'REFUNDED' || statusLabel === 'CANCELLED') badgeColor = 'bg-red-50 text-red-700 border-red-100';
+                  if (statusLabel === 'PENDING_PAYMENT') badgeColor = 'bg-yellow-50 text-yellow-700 border-yellow-100';
+                  if (statusLabel === 'CANCELLED') badgeColor = 'bg-red-50 text-red-700 border-red-100';
+                  if (statusLabel === 'PARTIALLY_CANCELLED') badgeColor = 'bg-blue-50 text-blue-700 border-blue-100';
 
                   return (
                     <div key={booking.id} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between gap-6 hover:shadow-md transition-shadow">
@@ -281,12 +493,26 @@ const ProfilePage = () => {
 
                       <div className="flex flex-col md:items-end justify-center">
                         <div className="text-2xl font-black mb-1">৳{booking.totalPrice}</div>
-                        <div className="text-sm text-gray-500 mb-3">
-                          Seats: <span className="font-semibold text-black">{booking.seats.sort().join(', ')}</span>
+                        <div className="text-sm text-gray-500 mb-1">
+                          Active: <span className="font-semibold text-black">{booking.tickets.filter(t => t.status === 'BOOKED' || t.status === 'HELD').map(t => t.seat).sort().join(', ') || 'None'}</span>
+                          {booking.tickets.some(t => t.status === 'RELEASED') && (
+                            <span className="ml-2 text-red-400 line-through">{booking.tickets.filter(t => t.status === 'RELEASED').map(t => t.seat).sort().join(', ')}</span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-3">
-                          {statusLabel === 'CONFIRMED' && (
+                          {statusLabel === 'PENDING_PAYMENT' && !booking.isExpired && (
+                            <PendingTimer
+                              expiresAt={booking.expiresAt}
+                              onExpire={() => {
+                                // Only reload if we are still seeing PENDING_PAYMENT
+                                if (booking.status === 'PENDING_PAYMENT') {
+                                  window.location.reload();
+                                }
+                              }}
+                            />
+                          )}
+                          {(statusLabel === 'CONFIRMED' || statusLabel === 'PARTIALLY_CANCELLED') && (
                             <button
                               onClick={() => openTicketPreview(booking)}
                               className="px-4 py-1.5 rounded-full border border-blue-200 text-blue-600 text-xs font-bold hover:bg-blue-50 transition"
@@ -300,6 +526,14 @@ const ProfilePage = () => {
                               className="px-4 py-1.5 rounded-full border border-red-200 text-red-600 text-xs font-bold hover:bg-red-50 transition"
                             >
                               Cancel
+                            </button>
+                          )}
+                          {statusLabel === 'PENDING_PAYMENT' && !booking.isExpired && (
+                            <button
+                              onClick={() => navigate('/checkout', { state: { booking } })}
+                              className="px-4 py-1.5 rounded-full bg-green-600 text-white text-xs font-bold hover:bg-green-700 shadow-lg shadow-green-200 transition"
+                            >
+                              Pay Now
                             </button>
                           )}
                           <span className={`px-3 py-1 text-xs font-bold rounded-full border ${badgeColor}`}>
@@ -368,6 +602,10 @@ const ProfilePage = () => {
           to { transform: translateY(0); opacity: 1; }
         }
         .animate-float-up { animation: floatUp 0.3s ease-out forwards; }
+        @keyframes slideIn {
+          from { transform: translateX(100px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
       `}</style>
     </div>
   );
